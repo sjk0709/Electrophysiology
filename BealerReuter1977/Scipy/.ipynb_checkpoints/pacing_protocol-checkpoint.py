@@ -43,22 +43,3 @@ class PacingProtocol(): # suggested by
                 and time >= stim_start else 0) / denom
   
         return pace
-
-    #  def generate_pacing_function(self, protocol):
-    #     stim_amplitude = protocol.stim_amplitude * 1E-3 * self.time_conversion
-    #     stim_start = protocol.stim_start * 1E-3 * self.time_conversion
-    #     stim_duration = protocol.stim_duration * 1E-3 * self.time_conversion
-    #     stim_end = protocol.stim_end * 1E-3 * self.time_conversion
-    #     i_stim_period = self.time_conversion / protocol.pace
-
-    #     if self.time_conversion == 1:
-    #         denom = 1E9
-    #     else:
-    #         denom = 1
-            
-    #     def pacing(t, y):
-    #         self.i_stimulation = (stim_amplitude if t - stim_start -\
-    #             i_stim_period*floor((t - stim_start)/i_stim_period) <=\
-    #             stim_duration and t <= stim_end and t >= stim_start else\
-    #             0) / self.cm_farad / denom
-    #         d_y = self.action_potential_diff_eq(t, y)
