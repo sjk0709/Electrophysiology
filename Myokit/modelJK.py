@@ -6,19 +6,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import myokit
-
-import multiprocessing
-from functools import partial 
-from tqdm import tqdm
-
    
-class HH1592d:
+class ModelJK:
     """
-    Hodgkin-Huxley 1952d
+    
     """
     def __init__(self, model_path):
-        
-        self._bcl = 30
+        basename = os.path.basename(model_path)        
+        self.name = os.path.splitext(basename)[0]        
+        self._bcl = 1000
         # self._times = np.arange(self._bcl)
         self._times = np.linspace(0, self._bcl, 1000)
         
@@ -53,7 +49,7 @@ class HH1592d:
         if plot:           
 
             fig, ax = plt.subplots(figsize=(6,4))    
-            fig.suptitle('Hodgkin-Huxley 1952d', fontsize=14)
+            fig.suptitle(self.name, fontsize=14)
             # ax.set_title('Simulation %d'%(simulationNo))
             plt.xlabel('Time (millisecond)')
             plt.ylabel('Membrane Potential (millivolt)')     
@@ -75,5 +71,7 @@ class HH1592d:
 if __name__=='__main__':
     
     start_time = time.time()
+   
+   
 
     print("--- %s seconds ---"%(time.time()-start_time))
