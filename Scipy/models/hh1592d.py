@@ -9,7 +9,6 @@ import multiprocessing
 from functools import partial 
 from tqdm import tqdm
 
-import matplotlib.pyplot as plt
 # import pickle
 # import bisect
 
@@ -26,8 +25,14 @@ class HH1592d():
         self.potassium_n0 = 0.317
         self.sodium_m0    = 0.05
         self.sodium_h0    = 0.595
+        
         self.y0 = [self.membrane_V0, self.potassium_n0, self.sodium_m0, self.sodium_h0]
-      
+        self.params = []
+
+    def set_result(self, t, y, log=None):
+        self.times =  t
+        self.V = y[0]        
+              
     def differential_eq(self, t, y0):    
         V, n, m, h = y0
        

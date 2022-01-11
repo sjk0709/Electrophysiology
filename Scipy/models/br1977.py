@@ -9,9 +9,6 @@ import multiprocessing
 from functools import partial 
 from tqdm import tqdm
 
-from scipy.integrate import ode, solve_ivp, odeint
-from scipy.optimize import curve_fit, least_squares
-import matplotlib.pyplot as plt
 # import pickle
 # import bisect
 
@@ -116,6 +113,11 @@ class BR1977():
         self.ix1 = Ix1()               
 
         self.y0 = [self.membrane.V, self.ina.m, self.ina.h, self.ina.j, self.isi.d, self.isi.f, self.isi.Cai, self.ix1.x1]
+        self.params = []
+
+    def set_result(self, t, y, log=None):
+        self.times =  t
+        self.V = y[0]    
         
     def differential_eq(self, t, y0):    
         V, ina_m, ina_h, ina_j, isi_d, isi_f, isi_Cai, ix1_x1 = y0

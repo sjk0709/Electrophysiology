@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_AP(title, times, AP):
+def plot_AP(title, times, AP, save_path=None):
     
     fig, ax = plt.subplots(figsize=(6,4))    
     fig.suptitle(title, fontsize=14)
@@ -21,7 +21,8 @@ def plot_AP(title, times, AP):
     #     fig1 = plt.gcf()
     ax.legend()
     plt.show()
-    # fig.savefig(os.path.join(result_folder, "AP.jpg"), dpi=100)
+    if save_path != None:
+        fig.savefig(save_path, dpi=100)
 
 
 def plot_current(title, times, current_li, label_li):
