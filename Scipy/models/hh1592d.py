@@ -9,8 +9,6 @@ import multiprocessing
 from functools import partial 
 from tqdm import tqdm
 
-from scipy.integrate import ode, solve_ivp, odeint
-from scipy.optimize import curve_fit, least_squares
 import matplotlib.pyplot as plt
 # import pickle
 # import bisect
@@ -24,10 +22,11 @@ class HH1592d():
         
         self.protocol = protocol
                 
-        self._membrane_V  = -75.0
-        self._potassium_n = 0.317
-        self._sodium_m    = 0.05
-        self._sodium_h    = 0.595
+        self.membrane_V0  = -75.0
+        self.potassium_n0 = 0.317
+        self.sodium_m0    = 0.05
+        self.sodium_h0    = 0.595
+        self.y0 = [self.membrane_V0, self.potassium_n0, self.sodium_m0, self.sodium_h0]
       
     def differential_eq(self, t, y0):    
         V, n, m, h = y0
@@ -67,29 +66,6 @@ class HH1592d():
                     
         return [dV, dn, dm, dh]
 
-    def simulate(self, times, params=None, default_time_unit='ms'):
-        '''Solve activation and inactivation gate.
-        '''                
-        if default_time_unit == 's':
-            self._time_conversion = 1.0
-            default_unit = 'standard'
-        else:
-            self._time_conversion = 1000.0
-            default_unit = 'milli'
-        
-        t_span = [0, times.max() * self._time_conversion * 1e-3]
-                   
-        self.solver = solve_ivp(self.differential_eq, t_span, y0=[self._membrane_V, self._potassium_n, self._sodium_m, self._sodium_h], args=params, t_eval=times, dense_output=True, 
-                        method='LSODA', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                        max_step=8e-4   #   LSODA : max_step=8e-4*time_conversion  |  BDF : max_step=1e-3*time_conversion, atol=1E-2, rtol=1E-4   |
-                        )
-        
-        self.times = self.solver.t
-        self.V = self.solver.y[0]
-        self.n = self.solver.y[1]
-        self.m = self.solver.y[2]
-        self.h = self.solver.y[3]
-        return self.V
 
 
 

@@ -114,6 +114,8 @@ class BR1977():
         self.isi = Isi()       
         self.ik1 = IK1()       
         self.ix1 = Ix1()               
+
+        self.y0 = [self.membrane.V, self.ina.m, self.ina.h, self.ina.j, self.isi.d, self.isi.f, self.isi.Cai, self.ix1.x1]
         
     def differential_eq(self, t, y0):    
         V, ina_m, ina_h, ina_j, isi_d, isi_f, isi_Cai, ix1_x1 = y0
@@ -168,29 +170,6 @@ class BR1977():
     
         return [dot_V, dot_m, dot_h, dot_j, dot_d, dot_f, dot_Cai, dot_x1]
  
-
-    def simulate(self, times, params=None, default_time_unit='ms'):
-        '''Solve activation and inactivation gate.
-        '''                
-        if default_time_unit == 's':
-            self._time_conversion = 1.0
-            default_unit = 'standard'
-        else:
-            self._time_conversion = 1000.0
-            default_unit = 'milli'
-        
-        t_span = [0, times.max() * self._time_conversion * 1e-3]
-                   
-        y0 = [self.membrane.V, self.ina.m, self.ina.h, self.ina.j, self.isi.d, self.isi.f, self.isi.Cai, self.ix1.x1]
-        self.solver = solve_ivp(self.differential_eq, t_span, y0=y0, args=params, t_eval=times, dense_output=True, 
-                        method='BDF', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                        max_step=1e-3*self._time_conversion, atol=1E-2, rtol=1E-4     #   LSODA : max_step=8e-4*time_conversion  |  BDF : max_step=1e-3*time_conversion, atol=1E-2, rtol=1E-4   |
-                        )
-        
-        self.times = self.solver.t
-        self.V = self.solver.y[0]        
-        return self.V
-
         
 
 
