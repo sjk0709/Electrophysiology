@@ -6,4 +6,4 @@
 ### Kylie 2017
 * model file : kylie2017IKr.py
 * paper : https://www.sciencedirect.com/science/article/pii/S0006349519305971
-* code : https://github.com/CardiacModelling/hERGRapidCharacterisation
+* reference code : https://github.com/CardiacModelling/hERGRapidCharacterisation
