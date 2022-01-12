@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_1D( t, V, title=None, figsize=(6,4), xlabel='Time (ms)', ylabel='Membrane Potential (mV)', label=None, 
-             xlim=None, ylim=None,
+def plot_1D( t, V, title=None, figsize=(6,4), xlabel='Time (ms)', ylabel='Membrane Potential (mV)', 
+             label=None, xlim=None, ylim=None,
              save_path=None):
     
     fig, ax = plt.subplots(figsize=figsize)    
