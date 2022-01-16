@@ -31,6 +31,32 @@ def plot_1D( t, V, title=None, figsize=(6,4), xlabel='Time (ms)', ylabel='Membra
     if save_path != None:
         fig.savefig(save_path, dpi=100)
 
+def plot_1D_multi( t, Is, title=None, figsize=(6,4), xlabel='Time (ms)', ylabel='Current (pA)', 
+             labels=None, xlim=None, ylim=None, textstr=None,
+             save_path=None):
+    
+    fig, ax = plt.subplots(figsize=figsize)    
+    fig.suptitle(title, fontsize=14)
+    # ax.set_title('Simulation %d'%(simulationNo))
+    if xlim !=None:
+        ax.set_xlim(xlim[0], xlim[1])
+    if ylim !=None:
+        ax.set_ylim(ylim[0], ylim[1])
+    ax.set_xlabel(xlabel)
+    plt.ylabel(ylabel)     
+    for I, label in zip(Is, labels):
+        ax.plot(t, I, label=label)  
+    if textstr !=None:        
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        # place a text box in upper left in axes coords
+        ax.text(0.67, 0.60, textstr, transform=ax.transAxes, fontsize=14, verticalalignment='top', bbox=props)    
+    #     fig1 = plt.gcf()
+    if labels != None:
+        ax.legend()
+    plt.show()
+    if save_path != None:
+        fig.savefig(save_path, dpi=100)
+
 
 def plot_stack( t, values, labels=(), title=None, figsize=(15,2), xlabel='Time (ms)', ylabel=None, 
                 xlim=None, ylim=None,

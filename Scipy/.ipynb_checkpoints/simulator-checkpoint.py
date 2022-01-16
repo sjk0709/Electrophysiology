@@ -22,7 +22,7 @@ class Simulator:
         self.bcl = 1000
         self.vhold = 0  # -80e-3      -88.0145 
                         
-        self.times = np.linspace(0, self.bcl, 1000)  # np.arange(self._bcl)        
+#         self.times = np.linspace(0, self.bcl, 1000)  # np.arange(self._bcl)        
         self.V = -80.0
      
     # def set_times(self, times):

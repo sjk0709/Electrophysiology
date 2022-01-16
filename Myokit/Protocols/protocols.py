@@ -1,5 +1,9 @@
 #!/usr/bin/env python
+import os
 import numpy as np
+import pickle
+
+import mod_protocols
 
 #
 # Protocol info
@@ -1112,3 +1116,53 @@ def Mauerhofer2016_tau_deact_inact_recovery(model, return_capmask=False,
     else:
         return model, steps
 
+
+    
+def get_voltage_clamp_step_tangent_yIntercept(t1, V1, t2, V2):
+    '''
+    y=ax+b
+    y-V1 = (V2-V1)/(t2-t1)*(x-t1)  <-  (t1, V1) , (t2, V2)
+    return a, b
+    '''
+    a = (V2 - V1)/(t2 - t1)
+    b = -a*t1 + V1
+    return a, b  
+
+def optimized_VC_Christini(model):
+    """
+    This code was referenced at https://github.com/Christini-Lab/vc-optimization-cardiotoxicity
+    """
+    trial_conditions = "./Protocols/trial_steps_ramps_Kernik_200_50_4_-120_60"
+    path_to_data = f"{trial_conditions}"
+    
+    files = os.listdir(path_to_data)
+
+    for f in files:
+        if ('shorten' in f) and ('pkl' in f):
+            file_name = f
+    print(f"{path_to_data}/{file_name}")
+    short_protocol = pickle.load(open(f"{path_to_data}/{file_name}", 'rb'))
+
+    start_point_li = short_protocol.get_voltage_change_startpoints()
+    end_point_li = short_protocol.get_voltage_change_endpoints()
+    steps = []
+    ramp_mmt_script = 'piecewise('
+    for step_index, current_step in enumerate(short_protocol.steps):        
+        if isinstance(current_step, mod_protocols.VoltageClampStep):
+            steps += [(current_step.voltage, current_step.duration)]            
+        elif isinstance(current_step, mod_protocols.VoltageClampRamp):            
+            steps += [(0.5*(current_step.voltage_start+current_step.voltage_end), current_step.duration)]
+            a, b = get_voltage_clamp_step_tangent_yIntercept(start_point_li[step_index], current_step.voltage_start, end_point_li[step_index], current_step.voltage_end) 
+            ramp_mmt_script += 'engine.time >= %f and engine.time < %f,'%(start_point_li[step_index], end_point_li[step_index]) 
+            ramp_mmt_script += ' %f + (%f) * engine.time, '%(b, a)
+        else:
+            # return current_step.get_voltage(time_into_step)
+            # print(current_step.get_voltage(time_into_step))
+            continue        
+    ramp_mmt_script += 'engine.pace)'
+    
+    model.get('membrane.V').set_rhs(ramp_mmt_script)
+
+    print(f'The protocol is {short_protocol.get_voltage_change_endpoints()[-1]} ms')
+            
+    return model, steps
