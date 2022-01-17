@@ -72,7 +72,6 @@ class Generator(Simulator):
                 try :
                     d = self.simulate( gen_params['times'], extra_log=gen_params['log_li'])                           
                     temp = []
-
                     for log in log_li :                                              
                         temp.append(d[log][::gen_params['scale']]) ###################
                     result_li.append( np.array(temp) ) 
