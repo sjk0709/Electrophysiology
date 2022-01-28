@@ -24,35 +24,30 @@ class Simulator:
                         
 #         self.times = np.linspace(0, self.bcl, 1000)  # np.arange(self._bcl)        
         self.V = -80.0
-        self.dt = 1.
+        self.dt = 0.01
         self.record_time_step = 1
 
     # def set_times(self, times):
     #     self.times = times
     #     print("Times has been set.")
 
-    def cal_dt(self, max_step):
-        dt = 0.01
-        if dt>max_step:
-            dt = max_step
-        return dt    
+    def cal_dt(self, max_step):        
+        if self.dt>max_step:
+            self.dt = max_step
+        return self.dt    
     
-    def simulate(self, end_time, log=None, max_step=None, default_time_unit='ms'):
+    def simulate(self, end_time, log=[], max_step=float('inf'), default_time_unit='ms'):
         '''
-        '''                       
-        current_time = 0
-        end_time = 60        
-        nt = end_time/dt
+        '''                               
+        # self.nt = end_time/dt
+                   
+        # initial values
+        current_time = 0          
+        current_y = np.array(self.model.y0)
 
-        V_current = -75.0
-        n_current = 0.317
-        m_current = 0.05
-        h_current = 0.595
-            
-        current_y = self.model.y0
-        
         times = [current_time]
         y_li = [self.model.y0]
+        
         while current_time<=end_time:    
             
             # calculate time step
@@ -61,7 +56,8 @@ class Simulator:
             
             # integration
             df = self.model.differential_eq(current_time, current_y)
-            next_y = current_y + dt*df
+            
+            next_y = current_y + dt*np.array(df)
             
             # update values
             current_y = next_y
@@ -69,8 +65,8 @@ class Simulator:
         #     if current_time
             times.append(current_time)
             y_li.append(current_y)  
-                                    )
-        self.model.set_result(times, current_y, log)
+
+        self.model.set_result(np.array(times), np.array(y_li).T, log)
 
 
         

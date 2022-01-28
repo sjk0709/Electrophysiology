@@ -24,18 +24,17 @@ class Simulator:
                         
 #         self.times = np.linspace(0, self.bcl, 1000)  # np.arange(self._bcl)        
         self.V = -80.0
-        self.dt = 1.
+        self.dt = 0.01
         self.record_time_step = 1
 
     # def set_times(self, times):
     #     self.times = times
     #     print("Times has been set.")
 
-    def cal_dt(self, max_step):
-        dt = 0.01
-        if dt>max_step:
-            dt = max_step
-        return dt    
+    def cal_dt(self, max_step):        
+        if self.dt>max_step:
+            self.dt = max_step
+        return self.dt    
     
     def simulate(self, end_time, log=[], max_step=float('inf'), default_time_unit='ms'):
         '''

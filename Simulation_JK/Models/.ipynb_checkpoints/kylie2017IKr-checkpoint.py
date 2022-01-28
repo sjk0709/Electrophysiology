@@ -109,18 +109,18 @@ class Kylie2017IKr():
 
     def set_result(self, t, y, log=None):
         self.times =  t
-        self.V = self.voltage(self.times)
+        self.V = self.voltage(t)
         self.open = y[0]  
         self.active = y[1]                  
         self.IKr = self.g * self.open * self.active * (self.V - self.EK)
     
-    def differential_eq(self, t, y0, g, p1, p2, p3, p4, p5, p6, p7, p8):    
+    def differential_eq(self, t, y0):    
         a, r = y0    
         V = self.protocol.voltage_at_time(t)
-        k1 = p1*np.exp(p2*V)
-        k2 = p3*np.exp(-p4*V)
-        k3 = p5*np.exp(p6*V)
-        k4 = p7*np.exp(-p8*V)
+        k1 = self.p1*np.exp(self.p2*V)
+        k2 = self.p3*np.exp(-self.p4*V)
+        k3 = self.p5*np.exp(self.p6*V)
+        k4 = self.p7*np.exp(-self.p8*V)
         tau_a = 1.0/(k1+k2)
         tau_r = 1.0/(k3+k4)
         a_inf = k1/(k1+k2)

@@ -93,7 +93,6 @@ class Ix1():
         A voltage- and time-dependent outward current, primarily carried by potassium ions 
         """        
         return x1 * 0.8 * (np.exp(0.04 * (V + 77)) - 1) / np.exp(0.04 * (V + 35))
-
     
         
         
@@ -118,6 +117,13 @@ class BR1977():
     def set_result(self, t, y, log=None):
         self.times =  t
         self.V = y[0]    
+        self.m = y[1]
+        self.h = y[2]
+        self.j = y[3]
+        self.d = y[4]
+        self.f = y[5]
+        self.Cai = y[6]
+        self.x1 = y[7]               
         
     def differential_eq(self, t, y0):    
         V, ina_m, ina_h, ina_j, isi_d, isi_f, isi_Cai, ix1_x1 = y0
