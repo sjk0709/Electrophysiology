@@ -82,6 +82,7 @@ class Simulator:
             self.simulation.set_state(self._init_state)
             self.simulation.set_state(self._pre_simulation.state())
                 
+        dt = times[1]-times[0]
         # Run simulation
         try:
             result = self.simulation.run(np.max(times),
