@@ -119,8 +119,8 @@ class HH1592d():
 #             if 'ILeak' in log:
 #                 self.ILeak = self.Leak.I( self.V )        
               
-    def differential_eq(self, t, y0):    
-        V, n, m, h = y0
+    def differential_eq(self, t, y):    
+        V, n, m, h = y
        
         # Potassium current
         dn = self.K.dot_n(n, V)

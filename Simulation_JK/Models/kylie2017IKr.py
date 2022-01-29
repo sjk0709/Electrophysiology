@@ -114,8 +114,8 @@ class Kylie2017IKr():
         self.active = y[1]                  
         self.IKr = self.g * self.open * self.active * (self.V - self.EK)
     
-    def differential_eq(self, t, y0):    
-        a, r = y0    
+    def differential_eq(self, t, y):    
+        a, r = y    
         V = self.protocol.voltage_at_time(t)
         k1 = self.p1*np.exp(self.p2*V)
         k2 = self.p3*np.exp(-self.p4*V)

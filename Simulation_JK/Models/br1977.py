@@ -18,14 +18,13 @@ class Membrane():
         self.C = 1  # [uF/cm^2] : The membrane capacitance
         self.V = -84.622        
     
-    def dot_V(self, IK1, Ix1, INa, Isi, IStim):
+    def dot_V(self, Iions):
         '''
         in [mV]
         Membrane potential
         '''
-        return -(1.0/self.C) * (IK1 + Ix1 + INa + Isi - IStim)
+        return -(1.0/self.C) * Iions
     
-
 class Stimulus():
     def __init__(self):
         self.amplitude = 25 # [uA/cm^2]
@@ -42,7 +41,31 @@ class INa():
         self.gNaBar = 4   # [mS/cm^2]
         self.gNaC = 0.003 # [mS/cm^2]
         self.ENa = 50     # [mV]
-          
+                
+    def dot_m(self, m, V):
+        '''
+        The activation parameter       
+        '''
+        alpha = (V + 47) / (1 - np.exp(-0.1 * (V + 47)))
+        beta  = 40 * np.exp(-0.056 * (V + 72))        
+        return alpha * (1 - m) - beta * m  # 
+    
+    def dot_h(self, h, V):
+        '''
+        An inactivation parameter   
+        '''
+        alpha = 0.126 * np.exp(-0.25 * (V + 77))
+        beta  = 1.7 / (1 + np.exp(-0.082 * (V + 22.5)))
+        return alpha * (1 - h) - beta * h  # 
+    
+    def dot_j(self, j, V):
+        '''
+        An inactivation parameter
+        '''
+        alpha = 0.055 * np.exp(-0.25 * (V + 78)) / (1 + np.exp(-0.2 * (V + 78)))
+        beta  = 0.3 / (1 + np.exp(-0.1 * (V + 32)))
+        return alpha * (1 - j) - beta * j  # 
+            
     def I(self, m, h, j, V):        
         """
         in [uA/cm^2]
@@ -59,6 +82,22 @@ class Isi():
         
         self.gsBar = 0.09    
 
+    def dot_d(self, d, V):
+        alpha = 0.095 * np.exp(-0.01 * (V + -5)) / (np.exp(-0.072 * (V + -5)) + 1)
+        beta  = 0.07 * np.exp(-0.017 * (V + 44)) / (np.exp(0.05 * (V + 44)) + 1)
+        return alpha * (1 - d) - beta * d
+        
+    def dot_f(self, f, V):
+        alpha = 0.012 * np.exp(-0.008 * (V + 28)) / (np.exp(0.15 * (V + 28)) + 1)
+        beta  = 0.0065 * np.exp(-0.02 * (V + 30)) / (np.exp(-0.2 * (V + 30)) + 1)
+        return alpha * (1 - f) - beta * f
+        
+    def dot_Cai(self, Isi, Cai):
+        '''
+        desc: The intracellular Calcium concentration
+        in [mol/L]
+        '''
+        return -1e-7 * Isi + 0.07 * (1e-7 - Cai)
    
     def I(self, d, f, Cai, V):        
         """
@@ -66,7 +105,7 @@ class Isi():
         The slow inward current, primarily carried by calcium ions. Called either
         "iCa" or "is" in the paper.
         """        
-        Es = - 82.3 - 13.0287 * np.log(Cai)        
+        Es = - 82.3 - 13.0287 * np.log(Cai)        # in [mV]
         return self.gsBar * d * f * (V - Es)         # in [uA/cm^2]
     
 
@@ -86,6 +125,11 @@ class IK1():
 class Ix1():
     def __init__(self):
         self.x1 = 0.0004
+        
+    def dot_x1(self, x1, V):
+        alpha = 0.0005 * np.exp(0.083 * (V + 50)) / (np.exp(0.057 * (V + 50)) + 1)
+        beta  = 0.0013 * np.exp(-0.06 * (V + 20)) / (np.exp(-0.04 * (V + 333)) + 1)
+        return alpha * (1 - x1) - beta * x1
     
     def I(self, x1, V):        
         """
@@ -125,57 +169,35 @@ class BR1977():
         self.Cai = y[6]
         self.x1 = y[7]               
         
-    def differential_eq(self, t, y0):    
-        V, ina_m, ina_h, ina_j, isi_d, isi_f, isi_Cai, ix1_x1 = y0
+    def differential_eq(self, t, y):    
+        V, m, h, j, d, f, Cai, x1 = y
        
         # Stimulus
         face = self.protocol.pacing(t)
         IStim = self.stimulus.I(face)
         
-        # INa
-        alpha = (V + 47) / (1 - np.exp(-0.1 * (V + 47)))
-        beta  = 40 * np.exp(-0.056 * (V + 72))
-        dot_m =  alpha * (1 - ina_m) - beta * ina_m  # The activation parameter             
-        
-        alpha = 0.126 * np.exp(-0.25 * (V + 77))
-        beta  = 1.7 / (1 + np.exp(-0.082 * (V + 22.5)))
-        dot_h = alpha * (1 - ina_h) - beta * ina_h  # An inactivation parameter        
-        
-        alpha = 0.055 * np.exp(-0.25 * (V + 78)) / (1 + np.exp(-0.2 * (V + 78)))
-        beta  = 0.3 / (1 + np.exp(-0.1 * (V + 32)))
-        dot_j =  alpha * (1 - ina_j) - beta * ina_j  # An inactivation parameter
-        
-        INa = (self.ina.gNaBar * ina_m**3 * ina_h * ina_j + self.ina.gNaC) * (V - self.ina.ENa)
-        
-        
+        # INa        
+        INa = self.ina.I(m, h, j, V)
+        dot_m = self.ina.dot_m(m, V)
+        dot_h = self.ina.dot_h(h, V)
+        dot_j = self.ina.dot_j(j, V)        
+                
         # Isi        
-        alpha = 0.095 * np.exp(-0.01 * (V + -5)) / (np.exp(-0.072 * (V + -5)) + 1)
-        beta  = 0.07 * np.exp(-0.017 * (V + 44)) / (np.exp(0.05 * (V + 44)) + 1)
-        dot_d = alpha * (1 - isi_d) - beta * isi_d
-       
-        alpha = 0.012 * np.exp(-0.008 * (V + 28)) / (np.exp(0.15 * (V + 28)) + 1)
-        beta  = 0.0065 * np.exp(-0.02 * (V + 30)) / (np.exp(-0.2 * (V + 30)) + 1)
-        dot_f =  alpha * (1 - isi_f) - beta * isi_f        
-        
-        Es = -82.3 - 13.0287 * np.log(isi_Cai)  # in [mV]
-        Isi = self.isi.gsBar * isi_d * isi_f * (V - Es)         # in [uA/cm^2]
-        dot_Cai = -1e-7 * Isi + 0.07 * (1e-7 - isi_Cai)
-        
+        Isi = self.isi.I(d, f, Cai, V)
+        dot_d = self.isi.dot_d(d, V)       
+        dot_f = self.isi.dot_f(f, V)       
+        dot_Cai = self.isi.dot_Cai(Isi, Cai)       
+            
         # IK1
-        IK1 = 0.35 * (4 * (np.exp(0.04 * (V + 85)) - 1) / (np.exp(0.08 * (V + 53)) + np.exp(0.04 * (V + 53))) + 0.2 * (V + 23) / (1 - np.exp(-0.04 * (V + 23))))
-    
+        IK1 = self.ik1.I(V)        
     
         # Ix1           
-        alpha = 0.0005 * np.exp(0.083 * (V + 50)) / (np.exp(0.057 * (V + 50)) + 1)
-        beta  = 0.0013 * np.exp(-0.06 * (V + 20)) / (np.exp(-0.04 * (V + 333)) + 1)
-        dot_x1 =  alpha * (1.0 - ix1_x1) - beta * ix1_x1
-        
-        Ix1 = ix1_x1 * 0.8 * (np.exp(0.04 * (V + 77)) - 1) / np.exp(0.04 * (V + 35))
-              
+        Ix1 = self.ix1.I(x1, V)
+        dot_x1 = self.ix1.dot_x1(x1, V)
+                   
+        # Membrane potential        
+        dot_V = self.membrane.dot_V(IK1 + Ix1 + INa + Isi - IStim)
             
-        # Membrane potential
-        dot_V = -(1.0/self.membrane.C) * (IK1 + Ix1 + INa + Isi - IStim)     
-    
         return [dot_V, dot_m, dot_h, dot_j, dot_d, dot_f, dot_Cai, dot_x1]
  
         
