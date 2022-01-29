@@ -1,5 +1,9 @@
 #!/usr/bin/env python
+import os
 import numpy as np
+import pickle
+
+import mod_protocols
 
 #
 # Protocol info
@@ -1123,14 +1127,16 @@ def get_voltage_clamp_step_tangent_yIntercept(t1, V1, t2, V2):
     a = (V2 - V1)/(t2 - t1)
     b = -a*t1 + V1
     return a, b  
-    
+
 def optimized_VC_Christini(model):
     """
     This code was referenced at https://github.com/Christini-Lab/vc-optimization-cardiotoxicity
     """
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    trial_conditions = os.path.join(current_dir, "trial_steps_ramps_Kernik_200_50_4_-120_60")
     path_to_data = f"{trial_conditions}"
     
-    files = listdir(path_to_data)
+    files = os.listdir(path_to_data)
 
     for f in files:
         if ('shorten' in f) and ('pkl' in f):

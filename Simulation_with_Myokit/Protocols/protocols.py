@@ -1132,7 +1132,8 @@ def optimized_VC_Christini(model):
     """
     This code was referenced at https://github.com/Christini-Lab/vc-optimization-cardiotoxicity
     """
-    trial_conditions = "./Protocols/trial_steps_ramps_Kernik_200_50_4_-120_60"
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    trial_conditions = os.path.join(current_dir, "trial_steps_ramps_Kernik_200_50_4_-120_60")
     path_to_data = f"{trial_conditions}"
     
     files = os.listdir(path_to_data)
