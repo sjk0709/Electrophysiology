@@ -3,17 +3,7 @@ name: ohara
 date: 2021-09-07
 author: Jaekyung Song
 desc: """
-    'ina.GNa' : 75,            # 75
-    'inal.GNaL' : 0.0075*0.6,  # if(cell.mode == 1, GNaL_b*0.6, GNaL_b) GNaL_b=0.0075     
-    'ito.Gto' : 0.02*4,        # piecewise(cell.mode == 1, Gto_b*4.0, cell.mode == 2, Gto_b*4.0, Gto_b) Gto_b = 0.02
-    'ical.PCa' : 0.0001*1.2,   # piecewise(cell.mode == 0, base, cell.mode == 1, 1.2*base, 2.5*base) base = 0.0001
-    'ikr.GKr' : 0.046*1.3,     # piecewise(cell.mode == 1, GKr_b*1.3, cell.mode == 2, GKr_b*0.8, GKr_b) GKr_b = 0.046    
-    'iks.GKs' : 0.0034*1.4 ,   # if(cell.mode == 1, GKs_b * 1.4, GKs_b) GKs_b = 0.0034    
-    'ik1.GK1' : 0.1908*1.2,    # piecewise(cell.mode == 1, GK1_b * 1.2, cell.mode == 2, GK1_b * 1.3, GK1_b) GK1_b = 0.1908
-    'ifunny.Gf' : 0.0435           # 0.0435
-
-    * This model has a funny channel
-    * Conductances of 8 ion channel can be adjusted.
+    
     """
 
 
@@ -67,7 +57,7 @@ ik1.xk1         = 0.996756                 # xk1=0.9967597594                   
 ryr.Jrelnp      = 1.46507e-07              # Jrelnp=2.5e-7
 ryr.Jrelp       = 1.83132e-07              # Jrelp=3.12e-7                    40
 camk.CaMKt      = 0.00325232               # CaMKt=0.00325232          0.0125840447          41
-ifunny.Xf       =  6.403385049126155e-03
+if.Xf           = 0.006403385049126155
 
 #
 # Engine variables
@@ -115,7 +105,7 @@ i_ion = (sodium.INa_tot
 
 [qnet]
 qNet = inal.INaL + ical.ICaL + ito.Ito + ikr.IKr + iks.IKs + ik1.IK1
-qNet_JK = ikr.IKr + ical.ICaL + ina.INa + ito.Ito + ik1.IK1 + ifunny.If + iks.IKs 
+qNet_JK = ikr.IKr + ical.ICaL + ina.INa + ito.Ito + ik1.IK1 + if.iF + iks.IKs 
 
 #
 # Stimulus current
@@ -295,46 +285,37 @@ EKs = phys.RTF * log((extra.Ko + PKNa * extra.Nao) / (potassium.Ki + PKNa * sodi
     in [mV]
 
 
-
-
 #
-# Funny/HCN current (If)
+# If :: Funny
 #
-[ifunny]
+[if]
 use membrane.V
-Gf = 0.0435 [nS/pF]
-    in [nS/pF]
-xF1 = 5.7897e-7 [1/ms]
-    in [1/ms]
-xF2 = -14.5897121702 [mV]
-    in [mV]
-xF5 = 20086.6502378844
-xF6 = 10.20235284528 [mV]
-    in [mV]
-xF_const = 23.94529134653 [ms]
-    in [ms]
-xF3 = xF5 * xF1
-    in [1/ms]
-xF4 = 1 / (1 / xF2 + 1 / xF6)
-    in [mV]
-dot(Xf) = (inf - Xf) / tau
-    desc: inactivation in i_f
-    a = xF1 * exp(V / xF2)
-        in [1/ms]
-    b = xF3 * exp(V / xF4)
-        in [1/ms]
-    inf = a / (a + b)
-    tau = 1 / (a + b) + xF_const
-        in [ms]
-NatoK_ratio = .491
-    desc: Verkerk et al. 2013
-Na_frac = NatoK_ratio / (NatoK_ratio + 1)
-i_fNa = Na_frac * Gf * Xf * (V - nernst.ENa)
-    in [A/F]
-i_fK = (1 - Na_frac) * Gf * Xf * (V - nernst.EK)
-    in [A/F]
-If = i_fNa + i_fK
-    in [A/F]
+xF1 = 5.79000000e-07
+xF2 = -1.45897122e+01
+xF5 = 2.00866502e+04
+xF6 = 1.02023529e+01
+xF_const = 2.39452914e+01
+# parameter-dependent values:
+xF3 = xF5*xF1
+xF4 = 1/((1/xF2)+(1/xF6))
+# 16: Xf (dimensionless) (inactivation in i_f)
+alpha_Xf = xF1*exp((V)/xF2)
+beta_Xf = xF3*exp((V)/xF4)
+Xf_inf = alpha_Xf/(alpha_Xf+beta_Xf)
+tau_Xf = ((1./(alpha_Xf+beta_Xf))+xF_const)
+dot(Xf) = (Xf_inf-Xf)/tau_Xf
+# Current:
+Gffc = 1.0
+G_F = 1.0
+gf = 0.0435 
+Gf = G_F * gf / Gffc
+# nS_per_pF (in i_f)
+NatoK_ratio = 0.491  # Verkerk et al. 2013
+Na_frac = NatoK_ratio/(NatoK_ratio+1)
+i_fNa = Na_frac*Gf*Xf*(V-nernst.ENa)
+i_fK = (1-Na_frac)*Gf*Xf*(V-nernst.EK)
+iF = i_fNa+i_fK
+
 
 
 #

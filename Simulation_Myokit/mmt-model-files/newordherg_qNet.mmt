@@ -72,30 +72,31 @@ pace = 0 bind pace
 dot(V) = -(i_ion + stimulus.i_stim)
     label membrane_potential
     in [mV]
-#i_ion = (ina.INa 
-#        + inal.INaL 
-#        + ito.Ito 
-#        + ical.ICaL 
-#        + ical.ICaNa 
-#        + ical.ICaK 
-#        + ikr.IKr 
-#        + iks.IKs 
-#        + ik1.IK1 
-#        + inaca.INaCa
-#        + inacass.INaCa_ss
-#        + inak.INaK
-#        + inab.INab  
-#        + ikb.IKb  
-#        + ipca.IpCa 
-#        + icab.ICab       
-#        )
-i_ion = (sodium.INa_tot
-        + sodium.INa_ss_tot
-        + calcium.ICa_tot
-        + calcium.ICa_ss_tot
-        + potassium.IK_tot
-        + potassium.IK_ss_tot
+i_ion = (ina.INa 
+        + inal.INaL 
+        + ito.Ito 
+        + ical.ICaL 
+        + ical.ICaNa 
+        + ical.ICaK 
+        + ikr.IKr 
+        + iks.IKs 
+        + ik1.IK1 
+        + inaca.INaCa
+        + inacass.INaCa_ss
+        + inak.INaK
+        + inab.INab  
+        + ikb.IKb  
+        + ipca.IpCa 
+        + icab.ICab       
+        + if.iF
         )
+#i_ion = (sodium.INa_tot
+#        + sodium.INa_ss_tot
+#        + calcium.ICa_tot
+#        + calcium.ICa_ss_tot
+#        + potassium.IK_tot
+#        + potassium.IK_ss_tot
+#        )
     label cellular_current
     in [uA/uF]
 
@@ -103,6 +104,7 @@ i_ion = (sodium.INa_tot
 
 [qnet]
 qNet = inal.INaL + ical.ICaL + ito.Ito + ikr.IKr + iks.IKs + ik1.IK1
+qNet_JK = ikr.IKr + ical.ICaL + ina.INa + ito.Ito + ik1.IK1 + if.iF + iks.IKs 
 
 #
 # Stimulus current
