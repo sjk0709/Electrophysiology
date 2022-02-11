@@ -42,6 +42,7 @@ class Simulator:
         # self.nt = end_time/dt
                    
         # initial values
+        nIter = 0
         current_time = 0          
         current_y = np.array(self.model.y0)
 
@@ -49,18 +50,19 @@ class Simulator:
         y_li = [self.model.y0]
         
         while current_time<=end_time:    
-            
-            # calculate time step
-            dt = self.cal_dt(max_step)
-            current_time += dt 
-            
+                        
             # integration
             df = self.model.differential_eq(current_time, current_y)
             
+            # calculate time step
+            dt = self.cal_dt(max_step)
+            
             next_y = current_y + dt*np.array(df)
             
-            # update values
+            # update values            
             current_y = next_y
+            current_time += dt 
+            nIter += 1
 
         #     if current_time
             times.append(current_time)
