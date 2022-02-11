@@ -1,3 +1,3 @@
-http://myokit.org/
+# Myokit(http://myokit.org/) was used to simulate ion channel models
 
-# Myokit was used to simulate ion channel models
+
