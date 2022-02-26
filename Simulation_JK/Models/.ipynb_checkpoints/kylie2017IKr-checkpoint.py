@@ -101,11 +101,8 @@ class Kylie2017IKr():
 
     def voltage(self, times):
         '''Solve voltage            
-        ''' 
-        V_li = []
-        for t in times:
-            V_li.append( self.protocol.voltage_at_time(t) )                   
-        return np.array(V_li)
+        '''                
+        return np.array([self.protocol.voltage_at_time(t) for t in times])
 
     def set_result(self, t, y, log=None):
         self.times =  t
