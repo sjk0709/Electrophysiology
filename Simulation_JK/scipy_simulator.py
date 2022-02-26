@@ -45,14 +45,14 @@ class Simulator:
         if method == 'LSODA':
             if max_step ==None:
                 max_step = 8e-4 * self._time_conversion  
-            self.solver = solve_ivp(self.model.differential_eq, t_span, y0=self.model.y0, t_eval=times, dense_output=True, 
+            self.solver = solve_ivp(self.model.response_diff_eq, t_span, y0=self.model.y0, t_eval=times, dense_output=True, 
                                     method='LSODA', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
                                     max_step=max_step
                                     )
         if method == 'BDF':
             if max_step ==None:
                 max_step = 1e-3 * self._time_conversion  
-            self.solver = solve_ivp(self.model.differential_eq, t_span, y0=self.model.y0, t_eval=times, dense_output=True, 
+            self.solver = solve_ivp(self.model.response_diff_eq, t_span, y0=self.model.y0, t_eval=times, dense_output=True, 
                                     method='BDF', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
                                     max_step=max_step, atol=1E-2, rtol=1E-4 
                                     )

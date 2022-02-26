@@ -52,7 +52,7 @@ class Simulator:
         while current_time<=end_time:    
                         
             # integration
-            df = self.model.differential_eq(current_time, current_y)
+            df = self.model.response_diff_eq(current_time, current_y)
             
             # calculate time step
             dt = self.cal_dt(max_step)

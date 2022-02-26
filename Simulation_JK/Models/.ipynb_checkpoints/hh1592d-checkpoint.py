@@ -144,7 +144,8 @@ class HH1592d():
                     
         return [dV, dn, dm, dh]
 
-
+    def response_diff_eq(self, t, y):
+        return self.differential_eq(t, y)
 
 
 def main():

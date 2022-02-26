@@ -28,9 +28,11 @@ class Membrane():
 class Stimulus():
     def __init__(self):
         self.amplitude = 25 # [uA/cm^2]
+        self.I = 0
         
-    def I(self, pace):
-        return self.amplitude * pace
+    def cal_stimulation(self, pace):
+        self.I = self.amplitude * pace     
+        return self.I
                 
 class INa():
     def __init__(self):
@@ -171,10 +173,6 @@ class BR1977():
         
     def differential_eq(self, t, y):    
         V, m, h, j, d, f, Cai, x1 = y
-       
-        # Stimulus
-        face = self.protocol.pacing(t)
-        IStim = self.stimulus.I(face)
         
         # INa        
         INa = self.ina.I(m, h, j, V)
@@ -196,11 +194,23 @@ class BR1977():
         dot_x1 = self.ix1.dot_x1(x1, V)
                    
         # Membrane potential        
-        dot_V = self.membrane.dot_V(IK1 + Ix1 + INa + Isi - IStim)
+        dot_V = self.membrane.dot_V(IK1 + Ix1 + INa + Isi - self.stimulus.I)
             
         return [dot_V, dot_m, dot_h, dot_j, dot_d, dot_f, dot_Cai, dot_x1]
- 
+    
+    
+    def response_diff_eq(self, t, y):
         
+        if self.protocol.type=='AP':            
+            face = self.protocol.pacing(t)
+            self.stimulus.cal_stimulation(face) # Stimulus    
+            
+        elif self.protocol.type=='VC':
+            y[0] = self.protocol.voltage_at_time(t)
+        
+        return self.differential_eq(t, y)
+   
+
 
 
 def main():
