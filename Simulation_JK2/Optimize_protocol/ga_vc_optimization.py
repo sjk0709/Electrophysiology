@@ -12,16 +12,22 @@ from multiprocessing import Pool
 import pickle
 
 import ga_genetic_algorithm_results as genetic_algorithm_results
+
+import os, sys
+
+sys.path.append('./Lib')
 import mod_protocols as protocols
 from mod_kernik import KernikModel
+
+sys.path.append('../')
+from Models.br1977 import BR1977
 
 
 def run_ga(ga_params, toolbox):
     current_results = []
     current = ga_params.config.target_current # ['I_Na', 'I_Kr', 'I_Ks', 'I_To', 'I_F', 'I_CaL', 'I_K1']
 
-    population = toolbox.population(
-            ga_params.config.population_size)  # population_size=200
+    population = toolbox.population( ga_params.config.population_size )  
 
     print('\tEvaluating initial population.')
 
@@ -158,31 +164,37 @@ def _init_individual():
     """Initializes a individual with a randomized protocol."""
     vc = []
     for i in range(VCGA_PARAMS.config.steps_in_protocol): # 4
-        which_vc = random.choice(VCGA_PARAMS.config.step_types)
+        which_vc = random.choice(VCGA_PARAMS.config.step_types)  # 'step' or 'ramp'
         if which_vc == 'step':
             random_vc = protocols.VoltageClampStep()
         elif which_vc == 'ramp':
             random_vc = protocols.VoltageClampRamp()
         else:
             random_vc = protocols.VoltageClampSinusoid()
-
-        random_vc.set_to_random_step(
-            voltage_bounds=VCGA_PARAMS.config.step_voltage_bounds,
-            duration_bounds=VCGA_PARAMS.config.step_duration_bounds)
+        
+        random_vc.set_to_random_step(            
+            voltage_bounds=VCGA_PARAMS.config.step_voltage_bounds,    # -> (-120, 60)
+            duration_bounds=VCGA_PARAMS.config.step_duration_bounds)  # -> (5, 1000)
 
         vc.append(random_vc)
 
     return genetic_algorithm_results.VCOptimizationIndividual(
-        protocol=protocols.VoltageClampProtocol(steps=vc),
-        fitness=0)
+                            protocol=protocols.VoltageClampProtocol(steps=vc),  
+                            fitness=0.0,
+                            model=VCGA_PARAMS.cell_model)
 
 class VCGAParams():
     def __init__(self, model_name, vco_config):
         """
         Initialize the class
         """
+        self.cell_model = None
         if model_name == "Kernik":
             self.cell_model = KernikModel
+        elif model_name == 'BR1977': 
+            self.cell_model = BR1977
+        elif model_name == 'ord2017':
+            self.cell_model = BR1977
         else:
             self.cell_model = paci_2018.PaciModel
 

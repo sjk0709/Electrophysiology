@@ -150,7 +150,9 @@ class BR1977():
     """    
     Beeler and Reuter 1977
     """
-    def __init__(self, protocol):
+    def __init__(self, protocol=None):
+
+        self.name = "BR1977"
         
         self.current_response_info = trace.CurrentResponseInfo(protocol)
         

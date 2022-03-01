@@ -33,13 +33,9 @@ import bisect
 
 sys.path.append('../')
 from Protocols.pacing_protocol import PacingProtocol
-from Protocols.leakstaircase import LeakStaircase
-
-sys.path.append('../')
 import scipy_simulator
 
-sys.path.append('../models')
-from Models.br1977 import BR1977
+
 #############################################
 
 
@@ -424,7 +420,6 @@ class ParameterTuningIndividual(Individual):
         else:
             return False
 
-
 class VCOptimizationIndividual(Individual):
     """Represents an individual in voltage clamp optimization genetic algorithm.
 
@@ -438,6 +433,7 @@ class VCOptimizationIndividual(Individual):
                  model=kernik) -> None:
         super().__init__(fitness=fitness)
         self.protocol = protocol
+        self.model = model
 
     def __str__(self):
         return str(self.fitness)
@@ -454,75 +450,22 @@ class VCOptimizationIndividual(Individual):
 
     def __lt__(self, other):
         return self.fitness < other.fitness
-
-
-    def calc_currents(self, exp_target=None):
-        self.current_response_info = trace.CurrentResponseInfo()
-
-        if exp_target is not None:
-            i_stim = [exp_target.get_current_at_time(t) for t in self.t * 1000 / self.time_conversion]
-
-        if len(self.y) < 200:
-            list(map(self.action_potential_diff_eq, self.t, self.y.transpose()))
-        else:
-            list(map(self.action_potential_diff_eq, self.t, self.y))
-
-        if exp_target is not None:
-            for i, current_timestep in enumerate(self.
-                    current_response_info.currents):
-                for c in current_timestep:
-                    if c.name == 'I_stim':
-                        c.value = i_stim[i]
-                        
-    def br1977(self, protocol):
-        model = BR1977(protocol)
-        simulator = scipy_simulator.Simulator(model)
-        model.name = "Beeler and Reuter 1977"      
-        times = [0, protocol.get_voltage_change_endpoints()[-1]]             
-        simulator.simulate(times)                 
-        
-        # print("dd11",len(model.current_response_info.currents))
-        
-        model.current_response_info = trace.CurrentResponseInfo()
-        if len(simulator.solver.y) < 200:
-            list(map(model.differential_eq, simulator.solver.t, simulator.solver.y.transpose()))
-        else:
-            list(map(model.differential_eq, simulator.solver.t, simulator.solver.y))               
-        
-        # print("dd22",len(model.current_response_info.currents))
-        
-        tr = trace.Trace(protocol,
-                    cell_params=None,
-                    t=model.times,
-                    y=model.V,
-                    command_voltages=model.V,            
-                    current_response_info=model.current_response_info,
-                    default_unit=None)
-        
-        return tr
-        
     
-    def evaluate(self, config: ga_configs.VoltageOptimizationConfig,
-            prestep=5000) -> int:
+    def evaluate(self, 
+                 config: ga_configs.VoltageOptimizationConfig,
+                 prestep=5000) -> int:
         """Evaluates the fitness of the individual."""
         #try:
         if config.model_name == 'Paci':
             i_trace = get_model_response(
                     paci_2018.PaciModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)
             scale = 1000
-        else:
-            #i_trace = get_model_response( kernik.KernikModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)
-            i_trace = self.br1977( self.protocol )
+        elif config.model_name == 'BR1977' or 'ORD2017':
+            i_trace = get_model_response_JK( self.model(self.protocol), self.protocol )
             scale = 1
-
-        #except:
-        #    print('failed')
-        #    return 0
-        #i_trace = kernik.KernikModel().generate_response(protocol=self.protocol)
-
-
-        #if not i_trace:
-        #    return 0
+        else:
+            i_trace = get_model_response( kernik.KernikModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)            
+            scale = 1
 
         max_contributions = i_trace.current_response_info.\
             get_max_current_contributions(
@@ -589,3 +532,29 @@ def get_model_response(model, protocol, prestep):
     response_trace = model.generate_response(protocol, is_no_ion_selective=False)
 
     return response_trace
+
+def get_model_response_JK( model, protocol):    
+    simulator = scipy_simulator.Simulator(model)
+    model.name = "Beeler and Reuter 1977"      
+    times = [0, protocol.get_voltage_change_endpoints()[-1]]             
+    simulator.simulate(times)                 
+    
+    # print("dd11",len(model.current_response_info.currents))
+    
+    model.current_response_info = trace.CurrentResponseInfo()
+    if len(simulator.solver.y) < 200:
+        list(map(model.differential_eq, simulator.solver.t, simulator.solver.y.transpose()))
+    else:
+        list(map(model.differential_eq, simulator.solver.t, simulator.solver.y))               
+    
+    # print("dd22",len(model.current_response_info.currents))
+    
+    tr = trace.Trace(protocol,
+                     cell_params=None,
+                     t=model.times,
+                     y=model.V,
+                     command_voltages=model.V,
+                     current_response_info=model.current_response_info,
+                     default_unit=None)
+    
+    return tr
