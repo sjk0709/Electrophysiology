@@ -71,7 +71,7 @@ class LeakStaircase(): # suggested by
 #         print(self.voltage_change_startpoints)
 #         print(self.voltage_change_endpoints)
 
-    def voltage_at_time(self, time):        
+    def get_voltage_at_time(self, time):        
         if time >= 0.300 and time < 0.700001:
             return  -150e-3 + 0.1 * time
         elif time >= 14.410 and time < 14.510001 :

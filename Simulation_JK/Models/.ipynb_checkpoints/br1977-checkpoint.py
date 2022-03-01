@@ -11,8 +11,9 @@ from tqdm import tqdm
 
 # import pickle
 # import bisect
-
-
+import mod_trace as trace
+        
+        
 class Membrane():
     def __init__(self):
         self.C = 1  # [uF/cm^2] : The membrane capacitance
@@ -148,6 +149,8 @@ class BR1977():
     """
     def __init__(self, protocol):
         
+        self.current_response_info = trace.CurrentResponseInfo(protocol)
+        
         self.protocol = protocol
         
         self.membrane = Membrane()
@@ -195,18 +198,27 @@ class BR1977():
                    
         # Membrane potential        
         dot_V = self.membrane.dot_V(IK1 + Ix1 + INa + Isi - self.stimulus.I)
+        
+        if self.current_response_info:
+            current_timestep = [
+                trace.Current(name='I_Na', value=INa),
+                trace.Current(name='I_si', value=Isi),
+                trace.Current(name='I_K1', value=IK1),
+                trace.Current(name='I_x1', value=Ix1),               
+            ]
+            self.current_response_info.currents.append(current_timestep)
             
         return [dot_V, dot_m, dot_h, dot_j, dot_d, dot_f, dot_Cai, dot_x1]
     
     
     def response_diff_eq(self, t, y):
         
-        if self.protocol.type=='AP':            
-            face = self.protocol.pacing(t)
-            self.stimulus.cal_stimulation(face) # Stimulus    
+#         if self.protocol.type=='AP':            
+#             face = self.protocol.pacing(t)
+#             self.stimulus.cal_stimulation(face) # Stimulus    
             
-        elif self.protocol.type=='VC':
-            y[0] = self.protocol.voltage_at_time(t)
+#         elif self.protocol.type=='VC':
+        y[0] = self.protocol.get_voltage_at_time(t)
         
         return self.differential_eq(t, y)
    

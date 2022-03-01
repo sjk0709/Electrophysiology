@@ -99,9 +99,7 @@ class Kylie2017IKr():
         self.p8 = p8 # [1/V]
         self.params = [g, p1, p2, p3, p4, p5, p6, p7, p8]
 
-    def voltage(self, times):
-        '''Solve voltage            
-        '''                
+    def voltage(self, times):                     
         return np.array([self.protocol.voltage_at_time(t) for t in times])
 
     def set_result(self, t, y, log=None):

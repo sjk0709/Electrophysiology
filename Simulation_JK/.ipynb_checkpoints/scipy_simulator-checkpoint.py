@@ -30,7 +30,7 @@ class Simulator:
     #     print("Times has been set.")
 
         
-    def simulate(self, times, log=None, method='LSODA', max_step=None, default_time_unit='ms'):
+    def simulate(self, times, log=None, method='BDF', max_step=None, default_time_unit='ms'):
         '''
         '''                       
         if default_time_unit == 's':
@@ -40,23 +40,23 @@ class Simulator:
             self._time_conversion = 1000.0
             default_unit = 'milli'
 
-        t_span = [0, times.max() * self._time_conversion * 1e-3]
+        t_span = times # [0, times.max() * self._time_conversion * 1e-3]
                    
         if method == 'LSODA':
             if max_step ==None:
                 max_step = 8e-4 * self._time_conversion  
-            self.solver = solve_ivp(self.model.differential_eq, t_span, y0=self.model.y0, t_eval=times, dense_output=True, 
+            self.solver = solve_ivp(self.model.response_diff_eq, t_span, y0=self.model.y0, dense_output=True, 
                                     method='LSODA', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
                                     max_step=max_step
                                     )
         if method == 'BDF':
             if max_step ==None:
                 max_step = 1e-3 * self._time_conversion  
-            self.solver = solve_ivp(self.model.differential_eq, t_span, y0=self.model.y0, t_eval=times, dense_output=True, 
+            self.solver = solve_ivp(self.model.response_diff_eq, t_span, y0=self.model.y0, 
                                     method='BDF', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
                                     max_step=max_step, atol=1E-2, rtol=1E-4 
                                     )
-
+        
         self.model.set_result(self.solver.t, self.solver.y, log)
 
 
