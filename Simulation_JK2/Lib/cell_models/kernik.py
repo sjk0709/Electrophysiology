@@ -22,7 +22,7 @@ class KernikModel(CellModel):
         
     """
     cm_farad = 60
-    print("falsjflkasjflksaj")
+    
     # Constants
     t_kelvin = 310.0
     r_joule_per_mole_kelvin = 8.314472

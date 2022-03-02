@@ -35,7 +35,8 @@ sys.path.append('../')
 from Protocols.pacing_protocol import PacingProtocol
 import scipy_simulator
 
-
+# Models
+from Models.br1977 import BR1977
 #############################################
 
 
@@ -420,6 +421,7 @@ class ParameterTuningIndividual(Individual):
         else:
             return False
 
+
 class VCOptimizationIndividual(Individual):
     """Represents an individual in voltage clamp optimization genetic algorithm.
 
@@ -433,8 +435,8 @@ class VCOptimizationIndividual(Individual):
                  model=kernik) -> None:
         super().__init__(fitness=fitness)
         self.protocol = protocol
-        self.model = model
-
+        # self.model = model      
+        
     def __str__(self):
         return str(self.fitness)
 
@@ -460,8 +462,11 @@ class VCOptimizationIndividual(Individual):
             i_trace = get_model_response(
                     paci_2018.PaciModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)
             scale = 1000
-        elif config.model_name == 'BR1977' or 'ORD2017':
-            i_trace = get_model_response_JK( self.model(self.protocol), self.protocol )
+        elif config.model_name == 'BR1977':                 
+            i_trace = get_model_response_JK( BR1977(self.protocol), self.protocol, prestep=5000 )
+            scale = 1
+        elif config.model_name == 'ORD2017':                 
+            i_trace = get_model_response_JK( BR1977(self.protocol), self.protocol, prestep=5000 )
             scale = 1
         else:
             i_trace = get_model_response( kernik.KernikModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)            
@@ -509,9 +514,7 @@ def get_model_response(model, protocol, prestep):
                 model.y_ss = model.y_initial
                 model.y_ss[0:23] = y_ss
         else:
-            prestep_protocol = protocols.VoltageClampProtocol(
-                [protocols.VoltageClampStep(voltage=-80.0,
-                                            duration=prestep)])
+            prestep_protocol = protocols.VoltageClampProtocol( [protocols.VoltageClampStep(voltage=-80.0, duration=prestep)] )
             model.generate_response(prestep_protocol, is_no_ion_selective=False)
             model.y_ss = model.y[:, -1]
     else:
@@ -533,11 +536,23 @@ def get_model_response(model, protocol, prestep):
 
     return response_trace
 
-def get_model_response_JK( model, protocol):    
-    simulator = scipy_simulator.Simulator(model)
-    model.name = "Beeler and Reuter 1977"      
-    times = [0, protocol.get_voltage_change_endpoints()[-1]]             
-    simulator.simulate(times)                 
+def get_model_response_JK( model, protocol, prestep=None):    
+    
+    simulator = scipy_simulator.Simulator(model)     
+    
+    if prestep == None:
+        print("There is no pre-step simulation.")
+    elif prestep == 'pre':
+        print("There is no pre-step simulation.")
+    else:
+        prestep_protocol = protocols.VoltageClampProtocol( [protocols.VoltageClampStep(voltage=-84.622, duration=prestep)] )
+        simulator.model.protocol = prestep_protocol
+        simulator.simulate( [0, prestep_protocol.get_voltage_change_endpoints()[-1]] )                 
+        simulator.model.y0 = simulator.solver.y[:,-1]             
+        
+    
+    simulator.model.protocol = protocol
+    simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]] ) 
     
     # print("dd11",len(model.current_response_info.currents))
     

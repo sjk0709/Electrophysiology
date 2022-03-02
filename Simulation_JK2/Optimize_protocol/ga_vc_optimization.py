@@ -19,8 +19,8 @@ sys.path.append('./Lib')
 import mod_protocols as protocols
 from mod_kernik import KernikModel
 
-sys.path.append('../')
-from Models.br1977 import BR1977
+sys.path.append('../Models')
+import br1977 
 
 
 def run_ga(ga_params, toolbox):
@@ -177,11 +177,10 @@ def _init_individual():
             duration_bounds=VCGA_PARAMS.config.step_duration_bounds)  # -> (5, 1000)
 
         vc.append(random_vc)
-
+    
     return genetic_algorithm_results.VCOptimizationIndividual(
                             protocol=protocols.VoltageClampProtocol(steps=vc),  
-                            fitness=0.0,
-                            model=VCGA_PARAMS.cell_model)
+                            fitness=0.0 )
 
 class VCGAParams():
     def __init__(self, model_name, vco_config):
@@ -192,9 +191,9 @@ class VCGAParams():
         if model_name == "Kernik":
             self.cell_model = KernikModel
         elif model_name == 'BR1977': 
-            self.cell_model = BR1977
+            self.cell_model = br1977.BR1977
         elif model_name == 'ord2017':
-            self.cell_model = BR1977
+            self.cell_model = br1977.BR1977
         else:
             self.cell_model = paci_2018.PaciModel
 
@@ -228,7 +227,7 @@ def start_ga(vco_config):
     toolbox.register('mutate', _mutate)
 
     p = Pool()
-    # toolbox.register("map", p.map)
+    toolbox.register("map", p.map)
     #toolbox.register("map", map)
 
     final_population = run_ga(VCGA_PARAMS, toolbox)
