@@ -11,7 +11,10 @@ from tqdm import tqdm
 
 # import pickle
 # import bisect
-import mod_trace as trace
+
+sys.path.append('../')
+from Protocols import pacing_protocol
+from Lib import mod_trace as trace
         
         
 class Membrane():
@@ -147,7 +150,9 @@ class BR1977():
     """    
     Beeler and Reuter 1977
     """
-    def __init__(self, protocol):
+    def __init__(self, protocol=None):
+
+        self.name = "BR1977"
         
         self.current_response_info = trace.CurrentResponseInfo(protocol)
         
@@ -213,13 +218,17 @@ class BR1977():
     
     def response_diff_eq(self, t, y):
         
-#         if self.protocol.type=='AP':            
-#             face = self.protocol.pacing(t)
-#             self.stimulus.cal_stimulation(face) # Stimulus    
+        if type(self.protocol) == pacing_protocol.PacingProtocol :
+            if self.protocol.type=='AP':            
+                face = self.protocol.pacing(t)
+                self.stimulus.cal_stimulation(face) # Stimulus    
             
-#         elif self.protocol.type=='VC':
-        y[0] = self.protocol.get_voltage_at_time(t)
-        
+            elif self.protocol.type=='VC':
+                y[0] = self.protocol.voltage_at_time(t)
+
+        else:
+            y[0] = self.protocol.get_voltage_at_time(t)
+                    
         return self.differential_eq(t, y)
    
 

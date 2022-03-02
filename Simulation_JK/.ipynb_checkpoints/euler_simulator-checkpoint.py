@@ -31,12 +31,13 @@ class Simulator:
     #     self.times = times
     #     print("Times has been set.")
 
-    def cal_dt(self, max_step):        
+    def cal_dt(self, max_step : float) -> float:        
         if self.dt>max_step:
             self.dt = max_step
         return self.dt    
     
-    def simulate(self, end_time, log=[], max_step=float('inf'), default_time_unit='ms'):
+    def simulate(self, end_time : float,
+                 log=[], max_step=float('inf'), default_time_unit='ms'):
         '''
         '''                               
         # self.nt = end_time/dt
