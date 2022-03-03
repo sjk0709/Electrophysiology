@@ -1,5 +1,5 @@
-## Example_euler are examples that simulate ion channel models with Euler method.
-## Example_scipy are examples that simulate ion channel models with scipy library.
+### Example_euler are examples that simulate ion channel models with Euler method.
+### Example_scipy are examples that simulate ion channel models with scipy library.
 
 ## Model description
 #### Hodgkin Huxley 1592d
