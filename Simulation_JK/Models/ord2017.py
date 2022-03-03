@@ -38,7 +38,7 @@ class Stimulus():
         return self.I
 
 class Phys():
-    def __init__(self, F=96485):
+    def __init__(self):
         '''
         The type of cell. Endo=0, Epi=1, Mid=2
         '''
@@ -53,10 +53,12 @@ class Phys():
         self.zk = 1
 
 class Cell():
-    def __init__(self, F=96485):
+    def __init__(self):
         '''
         The type of cell. Endo=0, Epi=1, Mid=2
         '''
+        self.phys = Phys()
+        
         self.mode = 0
         self.L = 0.01                                                           # [cm] Cell length
         self.rad = 0.0011                                                       # [cm] cell radius
@@ -67,7 +69,7 @@ class Cell():
         self.vnsr = 0.0552 * self.vcell                                         # [uL] Volume of the NSR compartment
         self.vjsr = 0.0048 * self.vcell                                         # [uL] Volume of the JSR compartment
         self.vss = 0.02 * self.vcell                                            # [uL] Volume of the Submembrane space near the T-tubules
-        self.AF = self.Acap / F                                                 # F : Faraday's constant
+        self.AF = self.Acap / self.phys.F                                                 # F : Faraday's constant
 
 
 class CaMK(): 
@@ -84,32 +86,155 @@ class CaMK():
         # initial value
         self.CaMKt = 0.0125840447  # CaMKt=0
                 
-    def d_CaMKt(self, calcium_cass):
+    def d_CaMKt(self, CaMKt, calcium_cass):
         '''          
         '''
         CaMKb  = self.CaMKo * (1.0 - self.CaMKt) / (1.0 + self.KmCaM / calcium_cass)
         CaMKa  = CaMKb + self.CaMKt
-        d_CaMKt = self.aCaMK * CaMKb * (CaMKb+self.CaMKt) - self.bCaMK*self.CaMKt
-        self.f = 1 / (1 + self.KmCaMK / CaMKa) # Fraction of phosphorylated channels
-        return
-    
+        self.f = 1 / (1 + self.KmCaMK / CaMKa) # Fraction of phosphorylated channels        
+        return self.aCaMK * CaMKb * (CaMKb + CaMKt) - self.bCaMK * CaMKt        
 
-#
-# Intracellular Sodium concentrations
-# Page 18
-#
 class Sodium():
-    def __init__(self):
-        # use cell.AF, cell.vss, cell.vmyo, cell.Acap
-        self.cm = 1.0
-
-    def d_Nai(self):
-        INa_tot    = ina.INa + inal.INaL + 3*inaca.INaCa + 3*inak.INaK + inab.INab 
-        dot(Nai)   = (-INa_tot * Acap * cm)/ (phys.F * vmyo) + diff.JdiffNa * vss / vmyo
-            desc: Intracellular Potassium concentration
-        INa_ss_tot = ical.ICaNa + 3*inacass.INaCa_ss
-        dot(Na_ss) = -INa_ss_tot * cm * Acap / (phys.F * vss) - diff.JdiffNa
+    '''
+    Intracellular Sodium concentrations
+    Page 18
+    '''
+    def __init__(self):        
+        self.phys = Phys()
+        self.cell = Cell()
         
+        self.cm = 1.0
+        
+        # initial values
+        self.Nai      = 7.268004498      # nai=7.268004498            2
+        self.Na_ss    = 7.268089977      # nass=nai                   3
+
+    def d_Nai(self, Nai, INa, INaL, INaCa, INaK, INab, diff_JdiffNa):
+        INa_tot = INa + INaL + 3*INaCa + 3*INaK + INab 
+        return (-INa_tot * self.cell.Acap * self.cm) / (self.phys.F * self.cell.vmyo) + diff_JdiffNa * self.cell.vss / self.cell.vmyo   
+                
+    def d_Na_ss(self, Na_ss, ical_ICaNa, inacass_INaCa_ss, diff_JdiffNa):        
+        INa_ss_tot = ical_ICaNa + 3*inacass_INaCa_ss
+        return -INa_ss_tot * self.cm * self.cell.Acap / (self.phys.F * self.cell.vss) - diff_JdiffNa
+        
+class Potassium():
+    '''
+    Intracellular Potassium concentrations
+    Page 18
+    '''
+    def __init__(self):        
+        self.phys = Phys()
+        self.cell = Cell()
+        
+        self.cm = 1.0
+        
+        # initial values
+        self.Ki    = 144.6555918      # ki=144.6555918             4
+        self.K_ss  = 144.6555651      # kss=ki                     5
+
+    def d_Ki(self, Ki, Ito, IKr, IKs, IK1, IKb, INaK, i_stim, diff_JdiffK):
+        IK_tot = Ito + IKr + IKs + IK1 + IKb - 2 * INaK 
+        return -(IK_tot + i_stim) * self.cm * self.cell.Acap / (self.phys.F * self.cell.vmyo) + diff_JdiffK * self.cell.vss / self.cell.vmyo
+                
+    def d_K_ss(self, K_ss, ical_ICaK, diff_JdiffK):       
+        '''
+        desc: Potassium concentration in the T-Tubule subspace
+        ''' 
+        IK_ss_tot = ical_ICaK
+        return -IK_ss_tot * self.cm * self.cell.Acap / (self.phys.F * self.cell.vss) - diff_JdiffK
+
+class Calcium():
+    '''
+    Intracellular Calcium concentrations and buffers
+    Page 18
+    '''
+    def __init__(self, cell_mode):        
+        self.phys = Phys()
+        self.cell = Cell()
+        self.cell_mode = cell_mode
+        
+        self.cm = 1.0
+        cmdnmax_b = 0.05
+        self.cmdnmax = cmdnmax_b  
+        if self.cell_mode == 1:
+            self.cmdnmax = 1.3*cmdnmax_b
+        
+        self.kmcmdn  = 0.00238
+        self.trpnmax = 0.07
+        self.kmtrpn  = 0.0005
+        self.BSRmax  = 0.047
+        self.KmBSR   = 0.00087
+        self.BSLmax  = 1.124
+        self.KmBSL   = 0.0087
+        self.csqnmax = 10.0
+        self.kmcsqn  = 0.8
+        
+        # initial values
+        self.Cai = 8.6e-05 
+        self.cass = 8.49e-05  
+        self.Ca_nsr = 1.619574538
+        self.Ca_jsr = 1.571234014 
+
+    def d_Cai(self, Cai, ipca_IpCa, icab_ICab, inaca_INaCa , serca_Jup, diff_Jdiff):
+        '''
+        desc: Intracellular Calcium concentratium
+        in [mmol/L]
+        '''
+        ICa_tot = ipca_IpCa + icab_ICab - 2*inaca_INaCa 
+        a = self.kmcmdn + Cai
+        b = self.kmtrpn + Cai
+        Bcai = 1 / (1 + self.cmdnmax * self.kmcmdn / (a*a) + self.trpnmax * self.kmtrpn / (b*b))        
+        return Bcai * (-ICa_tot * self.cm * self.cell.Acap / (2*self.phys.F*self.cell.vmyo) - serca_Jup  * self.cell.vnsr / self.cell.vmyo + diff_Jdiff * self.cell.vss / self.cell.vmyo )
+                
+    def d_cass(self, cass, ICaL, INaCa_ss, ryr_Jrel, diff_Jdiff):       
+        '''
+        desc: Calcium concentratium in the T-Tubule subspace
+        in [mmol/L]
+        ''' 
+        ICa_ss_tot = ICaL - 2 * INaCa_ss
+        a = self.KmBSR + cass
+        b = self.KmBSL + cass
+        Bcass = 1 / (1 + self.BSRmax * self.KmBSR / (a*a) + self.BSLmax * self.KmBSL / (b*b))
+        return Bcass * (-ICa_ss_tot * self.cm * self.cell.Acap / (2*self.phys.F*self.cell.vss) + ryr_Jrel * self.cell.vjsr / self.cell.vss - diff_Jdiff )
+    
+    def d_Ca_nsr(self, Ca_nsr, serca_Jup, trans_flux_Jtr):       
+        '''
+        desc: Calcium concentration in the NSR subspace
+        in [mmol/L]
+        '''         
+        return serca_Jup - trans_flux_Jtr * self.cell.vjsr / self.cell.vnsr
+    
+    def d_Ca_jsr(self, Ca_jsr, trans_flux_Jtr, ryr_Jrel):       
+        '''
+        desc: Calcium concentration in the JSR subspace
+        in [mmol/L]
+        '''         
+        Bcajsr = 1.0 / (1.0 + self.csqnmax * self.kmcsqn / (self.kmcsqn + Ca_jsr)^2)                
+        return Bcajsr * (trans_flux_Jtr - ryr_Jrel)
+
+class Extra():
+    '''
+  
+    '''
+    def __init__(self):        
+        self.Nao = 140 # [mmol/L] : Extracellular Na+ concentration
+        self.Cao = 1.8 # [mmol/L] : Extracellular Ca2+ concentration
+        self.Ko  = 5.4 # [mmol/L] : Extracellular K+ concentration
+
+class Nernst():
+    '''
+    
+    '''
+    def __init__(self):        
+        self.phys = Phys()
+        self.extra = Extra()
+    
+    def nernst(self, Nai, Ki):
+        ENa = self.phys.RTF * np.log(self.extra.Nao / Nai)      # in [mV]  desc: Reversal potential for Sodium currents
+        EK = self.phys.RTF * np.log(self.extra.Ko / Ki)      # in [mV]  desc: Reversal potential for Potassium currents
+        PKNa = 0.01833          # desc: Permeability ratio K+ to Na+
+        EKs = self.phys.RTF * np.log((self.extra.Ko + PKNa * self.extra.Nao) / (Ki + PKNa * Nai)) # desc: Reversal potential for IKs  in [mV]
+
                 
 class INa():
     def __init__(self):
