@@ -386,8 +386,8 @@ class VoltageClampProtocol:
 
         #print(times)
         #print(voltages)
-        np.save("times", times)
-        np.save("voltage_protocol", voltages)
+        # np.save("times", times)
+        # np.save("voltage_protocol", voltages)
 
         if ax is None:
             fig, ax = plt.subplots(1, 1, figsize=(12, 5))

@@ -227,7 +227,7 @@ def start_ga(vco_config):
     toolbox.register('mutate', _mutate)
 
     p = Pool()
-    # toolbox.register("map", p.map)
+    toolbox.register("map", p.map)
     #toolbox.register("map", map)
 
     final_population = run_ga(VCGA_PARAMS, toolbox)
