@@ -13,8 +13,10 @@ from tqdm import tqdm
 # import bisect
 
 sys.path.append('../')
-from Protocols import pacing_protocol
-from Lib import mod_trace as trace
+sys.path.append('../Lib')
+sys.path.append('../Protocols')
+from pacing_protocol import PacingProtocol
+import mod_trace as trace
         
         
 class Membrane():
@@ -218,7 +220,7 @@ class BR1977():
     
     def response_diff_eq(self, t, y):
         
-        if type(self.protocol) == pacing_protocol.PacingProtocol :
+        if type(self.protocol) == PacingProtocol :
             if self.protocol.type=='AP':            
                 face = self.protocol.pacing(t)
                 self.stimulus.cal_stimulation(face) # Stimulus    
