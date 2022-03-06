@@ -1,5 +1,6 @@
-### Example_euler are examples that simulate ion channel models with Euler method.
-### Example_scipy are examples that simulate ion channel models with scipy library.
+# Electrophysiology
+
+- These codes are examples that can simulate ion channel models with various numerical methods or libraries such as Scipy or Myokit(http://myokit.org/).
 
 ## Model description
 #### Hodgkin Huxley 1592d
