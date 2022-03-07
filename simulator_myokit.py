@@ -63,8 +63,7 @@ class Simulator:
         if pre_sim_type==1 : pre simulation
         if pre_sim_type==2 : constant pacing pre simulation
         '''
-        self.simulation.reset()
-        self.simulation.set_state(self.init_state)
+        self.simulation.reset()        
         
         if pre_sim_type==1:            
             self.simulation.pre(self.bcl*100)
