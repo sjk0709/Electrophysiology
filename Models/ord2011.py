@@ -1065,10 +1065,10 @@ class ORD2011():
         self.potassium = Potassium(self.phys, self.cell, self.extra)      
         self.calcium = Calcium(self.phys, self.cell, self.extra)
 
-        self.y0 = self.membrane.y0 + self.camk.y0 + \
+        self.y0 = self.membrane.y0 + self.sodium.y0 + self.potassium.y0 + self.calcium.y0 +\
                     self.ina.y0 + self.inal.y0 + self.ito.y0 + self.ical.y0 + self.ikr.y0 + self.iks.y0 + self.ik1.y0 +\
-                        self.ryr.y0 + \
-                            self.sodium.y0 + self.potassium.y0 + self.calcium.y0
+                        self.ryr.y0 + self.camk.y0
+                            
         self.params = []
 
     def set_result(self, t, y, log=None):
@@ -1076,7 +1076,7 @@ class ORD2011():
         self.V = y[0]    
                          
     def differential_eq(self, t, y):    
-        V, CaMKt, \
+        V, Nai, Na_ss, Ki, K_ss, Cai, cass, Ca_nsr, Ca_jsr,\
             m, hf, hs, j, hsp, jp, \
                 mL, hL, hLp, \
                     a, iF, iS, ap, iFp, iSp, \
@@ -1084,8 +1084,7 @@ class ORD2011():
                             xf, xs,\
                                 xs1, xs2, \
                                     xk1, \
-                                        Jrelnp, Jrelp, \
-                                            Nai, Na_ss, Ki, K_ss, Cai, cass, Ca_nsr, Ca_jsr = y
+                                        Jrelnp, Jrelp, CaMKt = y
 
         # Calculate Nernst  
         self.nernst.calculate(Nai, Ki)        
@@ -1138,10 +1137,10 @@ class ORD2011():
             ]
             self.current_response_info.currents.append(current_timestep)
             
-        return d_V_li + d_CaMKt_li + \
+        return d_V_li + d_sodium_li + d_potassium_li + d_calcium_li + \
                     d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
-                        d_ryr_li + \
-                            d_sodium_li + d_potassium_li + d_calcium_li
+                        d_ryr_li + d_CaMKt_li
+                            
     
     
     def response_diff_eq(self, t, y):

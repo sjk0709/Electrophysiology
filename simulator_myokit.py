@@ -14,43 +14,41 @@ class Simulator:
     """
     
     """
-    def __init__(self, model_path, protocol_def=None, pre_sim=2):
+    def __init__(self, model_path, protocol=None, max_step=None, abs_tol=1e-06, rel_tol=0.0001):
         '''
-        if pre_sim==0 : No pre simulation
-        if pre_sim==1 : pre simulation
-        if pre_sim==2 : constant pacing pre simulation
+        
         '''
-        self.protocol_def = protocol_def
-        basename = os.path.basename(model_path)        
-        self.name = os.path.splitext(basename)[0]                
-        self.bcl = 1000
-        self.pre_sim = pre_sim  # 0:default  | 1 : pre simulation  | 2: pre simulation with constant pace
-        self.vhold = 0  # -80e-3      -88.0145 
-                        
-        self.times = np.linspace(0, self.bcl, 1000)  # np.arange(self._bcl)        
         # Get model
-        self.model, self._protocol, self._script = myokit.load(model_path)
+        self.model, self.protocol, self._script = myokit.load(model_path)
 
+        if type(protocol)==myokit._protocol.Protocol:
+            self.protocol = protocol             
 
-        self.protocol_total_duration = 0
-        if self.protocol_def != None:
-            self.model, steps = self.protocol_def(self.model)
-            self._protocol = myokit.Protocol()            
+        elif protocol == "Stair":
+            self.protocol_total_duration = 0                        
+            self.model, steps = protocol(self.model)
+            self.protocol = myokit.Protocol()            
             for f, t in steps:
-                self._protocol.add_step(f, t)
+                self.protocol.add_step(f, t)
                 self.protocol_total_duration += t
             self.vhold = steps[0][0]
-
-        if self.pre_sim==2:
-            self.pacing_constant_pre_simulate(self.vhold)
+        
+        self.bcl = 1000        
+        self.vhold = 0  # -80e-3      -88.0145         
                 
-        self.simulation = myokit.Simulation(self.model, self._protocol)
-#         self._simulation.set_tolerance(1e-12, 1e-14)
-#         self._simulation.set_max_step_size(1e-5)
-           
-    # def set_times(self, times):
-    #     self.times = times
-    #     print("Times has been set.")
+        # basename = os.path.basename(model_path)        
+        # self.name = os.path.splitext(basename)[0]                
+        
+        # 1. Create pre-pacing protocol
+        p = myokit.pacing.constant(self.vhold)
+        self.pre_simulation = myokit.Simulation(self.model, p)
+        self.pre_init_state = self.pre_simulation.state()
+
+
+        self.simulation = myokit.Simulation(self.model, self.protocol)
+        self.simulation.set_tolerance(abs_tol, rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
+        self.simulation.set_max_step_size(max_step)
+        self.init_state = self.simulation.state()
 
     def set_simulation_params(self, parameters):
         '''
@@ -58,34 +56,27 @@ class Simulator:
         '''            
         for key, value in parameters.items():        
             self.simulation.set_constant(key, value)        
-        
-
-    def pacing_constant_pre_simulate(self, vhold=0):     
-        # 1. Create pre-pacing protocol                
-        protocol = myokit.pacing.constant(vhold)        
-        protocol = myokit.pacing.blocktrain(1000, 0., offset=0)
-        self._pre_simulation = myokit.Simulation(self.model, protocol)    
-        self._init_state = self._pre_simulation.state()  
-        self._pre_simulation.reset()
-        self._pre_simulation.set_state(self._init_state)        
-        
-        # self._pre_simulation.set_tolerance(1E-3, 1E-6)
-        # self._pre_simulation.set_max_step_size(0.5)
-                
-        self._pre_simulation.pre(self.bcl*100)        
-        # self._pre_simulation.run(self.bcl*100)
-    
-    
-
-    def simulate(self, times, extra_log=[]):      
-            
+  
+    def simulate(self, times, extra_log=[], pre_sim_type=None):      
+        '''
+        if pre_sim_type==0 : No pre simulation
+        if pre_sim_type==1 : pre simulation
+        if pre_sim_type==2 : constant pacing pre simulation
+        '''
         self.simulation.reset()
+        self.simulation.set_state(self.init_state)
         
-        if self.pre_sim==1:
-            self.simulation.pre(self.bcl*100)        
-        if self.pre_sim==2:                                      
-            self.simulation.set_state(self._init_state)
-            self.simulation.set_state(self._pre_simulation.state())
+        if pre_sim_type==1:            
+            self.simulation.pre(self.bcl*100)
+            
+        elif pre_sim_type==2:
+            self.pre_simulation.reset()
+            self.simulation.reset()
+            self.pre_simulation.set_state(self.pre_init_state)
+            self.simulation.set_state(self.pre_init_state)
+            
+            self.pre_simulation.pre(self.bcl*100)
+            self.simulation.set_state(self.pre_simulation.state())
                 
         dt = times[1]-times[0]
         # Run simulation
@@ -172,8 +163,6 @@ class Simulator:
             
         print("=====Dataset%d generation End.===== %d simulation errors occured.====="%(datasetNo, simulation_error_count))       
     
-    
-          
     
 
         

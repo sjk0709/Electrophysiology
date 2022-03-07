@@ -88,6 +88,8 @@ class HH1592d():
     Hodgkin, Huxley, 1952d, Journal of Physiology
     """
     def __init__(self, protocol):
+
+        self.name = "HH1592d"
         
         self.protocol = protocol
                 
