@@ -21,6 +21,7 @@ from mod_kernik import KernikModel
 
 sys.path.append('../Models')
 import br1977 
+import ord2011JK_v1
 
 
 def run_ga(ga_params, toolbox):
@@ -192,8 +193,8 @@ class VCGAParams():
             self.cell_model = KernikModel
         elif model_name == 'BR1977': 
             self.cell_model = br1977.BR1977
-        elif model_name == 'ord2017':
-            self.cell_model = br1977.BR1977
+        elif model_name == 'ORD2011':            
+            self.cell_model = ord2011JK_v1.ORD2011
         else:
             self.cell_model = paci_2018.PaciModel
 
