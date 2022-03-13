@@ -3,6 +3,8 @@ import copy
 import time, glob
 
 import random
+from numbalsoda import lsoda_sig, lsoda
+from numba import njit, cfunc
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -35,7 +37,7 @@ class Simulator:
     #     print("Times has been set.")
 
     def pre_simulate(self, pre_step=5000, protocol=None, 
-                           method='BDF', max_step=np.inf, atol=1E-6, rtol=1E-3, t_eval=None, default_time_unit='ms'):
+                           method='BDF', max_step=np.inf, atol=1E-6, rtol=1E-3, t_eval=None):
         '''
         ''' 
         protocol_temp = copy.copy(self.model.protocol)
@@ -45,64 +47,65 @@ class Simulator:
         elif protocol =='pacing':
             self.model.protocol = PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
         elif protocol==None:            
-            self.model.protocol = protocol_temp
+            self.model.protocol = protocol_temp        
         
-
-        if default_time_unit == 's':
-            self._time_conversion = 1.0
-            default_unit = 'standard'            
-        else:
-            self._time_conversion = 1000.0
-            default_unit = 'milli'
-        
-        
-        if method == 'LSODA':
-            if max_step ==None:
-                max_step = 8e-4 * self._time_conversion  
-            self.solver = solve_ivp(self.model.response_diff_eq, (0, pre_step), y0=self.model.y0, t_eval=t_eval,
-                                    dense_output=False, 
-                                    method='LSODA', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                                    max_step=max_step, atol=atol, rtol=rtol )
-        if method == 'BDF': 
-            if max_step ==None:
-                max_step = 1e-3 * self._time_conversion  
-            self.solver = solve_ivp(self.model.response_diff_eq, (0, pre_step), y0=self.model.y0, t_eval=t_eval,
-                                    dense_output=False, 
-                                    method='BDF', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                                    max_step=max_step, atol=atol, rtol=rtol )
+        sol = solve_ivp(self.model.response_diff_eq,  (0, pre_step), y0=self.model.y0, t_eval=t_eval,
+                                dense_output=False, 
+                                method=method, # RK45 | LSODA | DOP853 | Radau | BDF | RK23
+                                max_step=max_step, atol=atol, rtol=rtol )        
             
-        self.model.y0 = copy.copy(self.solver.y[:,-1])
+        self.model.y0 = copy.copy(sol.y[:,-1])
 
         self.model.protocol = protocol_temp
+
+        return sol.y[:,-1]
                 
         
     def simulate(self, t_span : list, 
-                       t_eval=None, log=None, method='BDF', max_step=np.inf, atol=1E-6, rtol=1E-3, default_time_unit='ms'):
+                       t_eval=None, log=None, method='BDF', max_step=np.inf, atol=1E-6, rtol=1E-3):
         '''
-        '''                       
-        if default_time_unit == 's':
-            self._time_conversion = 1.0
-            default_unit = 'standard'            
-        else:
-            self._time_conversion = 1000.0
-            default_unit = 'milli'
-           
-        if method == 'LSODA':
-            if max_step ==None:
-                max_step = 8e-4 * self._time_conversion  
-            self.solver = solve_ivp(self.model.response_diff_eq, t_span, y0=self.model.y0, t_eval=t_eval,
-                                    dense_output=False, 
-                                    method='LSODA', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                                    max_step=max_step, atol=atol, rtol=rtol )
-        if method == 'BDF': 
-            if max_step ==None:
-                max_step = 1e-3 * self._time_conversion  
-            self.solver = solve_ivp(self.model.response_diff_eq, t_span, y0=self.model.y0, t_eval=t_eval,
-                                    dense_output=True, 
-                                    method='BDF', # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                                    max_step=max_step, atol=atol, rtol=rtol )  # atol=1E-2, rtol=1E-4 
+        method : RK45 | LSODA | DOP853 | Radau | BDF | RK23
+        '''                            
+        self.solution = solve_ivp(self.model.diff_eq_solve_ivp, t_span, y0=self.model.y0, t_eval=t_eval,
+                                dense_output=False, 
+                                method=method, # RK45 | LSODA | DOP853 | Radau | BDF | RK23
+                                max_step=max_step, atol=atol, rtol=rtol )            
+        self.model.set_result(self.solution.t, self.solution.y, log)
+        return self.solution
+
+
+    def pre_simulate2(self, pre_step=5000, protocol=None, 
+                           method='BDF', max_step=np.inf, atol=1E-6, rtol=1E-3, t_eval=None):
+        '''
+        ''' 
+        protocol_temp = copy.copy(self.model.protocol)
+        self.model.protocol = protocol           
+        if protocol == 'constant':            
+            self.model.protocol = mod_protocols.VoltageClampProtocol( [mod_protocols.VoltageClampStep(voltage=self.model.y0[0], duration=pre_step)] )
+        elif protocol =='pacing':
+            self.model.protocol = PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
+        elif protocol==None:            
+            self.model.protocol = protocol_temp        
         
-        self.model.set_result(self.solver.t, self.solver.y, log)
+        times = np.linspace(0, pre_step, pre_step+10) 
+        sol = odeint(self.model.diff_eq_odeint, t=times, y0=self.model.y0, hmax=max_step, rtol=rtol, atol=atol )   
+
+        self.model.y0 = copy.copy(sol[-1, :])
+
+        self.model.protocol = protocol_temp
+
+        return sol[-1, :]
+
+
+    def simulate2(self, times, log=None, max_step=np.inf, atol=1E-6, rtol=1E-3):
+        '''
+        
+        '''            
+        self.solution = odeint(self.model.diff_eq_odeint, t=times, y0=self.model.y0, hmax=max_step, rtol=rtol, atol=atol )      
+        self.solution = self.solution.transpose(1,0)   
+        self.model.set_result(times, self.solution, log) 
+        return self.solution  
+        
 
 
         

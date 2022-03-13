@@ -149,6 +149,12 @@ class HH1592d():
     def response_diff_eq(self, t, y):
         return self.differential_eq(t, y)
 
+    def diff_eq_solve_ivp(self, t, y):
+        return self.response_diff_eq(t, y)
+        
+    def diff_eq_odeint(self, y, t, *p):
+        return self.response_diff_eq(t, y)
+
 
 def main():
     start_time = time.time()

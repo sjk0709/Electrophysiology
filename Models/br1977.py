@@ -233,7 +233,11 @@ class BR1977():
                     
         return self.differential_eq(t, y)
    
-
+    def diff_eq_solve_ivp(self, t, y):
+        return self.response_diff_eq(t, y)
+        
+    def diff_eq_odeint(self, y, t, *p):
+        return self.response_diff_eq(t, y)
 
 
 def main():

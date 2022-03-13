@@ -57,7 +57,7 @@ class Simulator:
         for key, value in parameters.items():        
             self.simulation.set_constant(key, value)        
   
-    def simulate(self, times, extra_log=[], pre_sim_type=None):      
+    def pre_simulate(self, pre_step, sim_type=0):   
         '''
         if pre_sim_type==0 : No pre simulation
         if pre_sim_type==1 : pre simulation
@@ -65,25 +65,27 @@ class Simulator:
         '''
         self.simulation.reset()        
         
-        if pre_sim_type==1:            
-            self.simulation.pre(self.bcl*100)
+        if sim_type==0:            
+            self.simulation.pre(pre_step) # self.bcl*100
             
-        elif pre_sim_type==2:
+        elif sim_type==1:  # myokit.pacing.constant(self.vhold)
             self.pre_simulation.reset()
             self.simulation.reset()
             self.pre_simulation.set_state(self.pre_init_state)
-            self.simulation.set_state(self.pre_init_state)
-            
-            self.pre_simulation.pre(self.bcl*100)
+            self.simulation.set_state(self.pre_init_state)            
+            self.pre_simulation.pre(pre_step)
             self.simulation.set_state(self.pre_simulation.state())
-                
-        dt = times[1]-times[0]
+        
+        return self.simulation.state()
+
+    def simulate(self, end_time, log_times=None, extra_log=[]):      
+        
         # Run simulation
         try:
-            result = self.simulation.run(np.max(times),
-                                          log_times = times,
-                                          log = ['engine.time', 'membrane.V'] + extra_log,
-                                         ).npview()
+            result = self.simulation.run(end_time,
+                                         log_times = log_times,
+                                         log = ['engine.time', 'membrane.V'] + extra_log,
+                                        ).npview()
         except myokit.SimulationError:
             return float('inf')
             

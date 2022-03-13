@@ -2,6 +2,8 @@ import os, sys
 import time, glob
 
 import random
+import math
+from math import log, sqrt, floor, exp
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -119,9 +121,9 @@ class Nernst():
             
     def calculate(self, Nai, Ki):
         PKNa = 0.01833          # desc: Permeability ratio K+ to Na+
-        self.ENa = self.phys.RTF * np.log(self.extra.Nao / Nai)      # in [mV]  desc: Reversal potential for Sodium currents
-        self.EK = self.phys.RTF * np.log(self.extra.Ko / Ki)      # in [mV]  desc: Reversal potential for Potassium currents                
-        self.EKs = self.phys.RTF * np.log((self.extra.Ko + PKNa * self.extra.Nao) / (Ki + PKNa * Nai)) # desc: Reversal potential for IKs  in [mV]
+        self.ENa = self.phys.RTF * log(self.extra.Nao / Nai)      # in [mV]  desc: Reversal potential for Sodium currents
+        self.EK = self.phys.RTF * log(self.extra.Ko / Ki)      # in [mV]  desc: Reversal potential for Potassium currents                
+        self.EKs = self.phys.RTF * log((self.extra.Ko + PKNa * self.extra.Nao) / (Ki + PKNa * Nai)) # desc: Reversal potential for IKs  in [mV]
 
 
 class INa():
@@ -163,31 +165,31 @@ class INa():
         mtV2 = 34.77
         mtV3 = 77.42
         mtV4 = 5.955            
-        self.tm  = 1.0 / (mtD1 * np.exp((V + mtV1) / mtV2) + mtD2 * np.exp(-(V + mtV3) / mtV4)) # desc: Time constant for m-gate   in [ms]
+        self.tm  = 1.0 / (mtD1 * exp((V + mtV1) / mtV2) + mtD2 * exp(-(V + mtV3) / mtV4)) # desc: Time constant for m-gate   in [ms]
         mssV1 = 39.57
         mssV2 = 9.871
-        mss  = 1.0 / (1.0 + np.exp(-(V + mssV1)/mssV2))  # desc: Steady state value for m-gate         
+        mss  = 1.0 / (1.0 + exp(-(V + mssV1)/mssV2))  # desc: Steady state value for m-gate         
         d_m = (mss - m) / self.tm           
 
         hssV1 = 82.9 
         hssV2 = 6.086 
         shift_INa_inact = 0.0
-        hss = 1.0 / (1.0 + np.exp((V + hssV1-shift_INa_inact) / hssV2))   # desc: Steady-state value for h-gate
-        thf = 1.0 / (1.432e-5 * np.exp(-(V + 1.196 - shift_INa_inact) / 6.285) + 6.1490 * np.exp((V + 0.5096 - shift_INa_inact) / 20.27)) # desc: Time constant for fast development of inactivation in INa   in [ms]
-        ths = 1.0 / (0.009794 * np.exp(-(V + 17.95-shift_INa_inact) / 28.05) + 0.3343 * np.exp((V + 5.7300 - shift_INa_inact) / 56.66))  # desc: Time constant for slow development of inactivation in INa  in [ms]
+        hss = 1.0 / (1.0 + exp((V + hssV1-shift_INa_inact) / hssV2))   # desc: Steady-state value for h-gate
+        thf = 1.0 / (1.432e-5 * exp(-(V + 1.196 - shift_INa_inact) / 6.285) + 6.1490 * exp((V + 0.5096 - shift_INa_inact) / 20.27)) # desc: Time constant for fast development of inactivation in INa   in [ms]
+        ths = 1.0 / (0.009794 * exp(-(V + 17.95-shift_INa_inact) / 28.05) + 0.3343 * exp((V + 5.7300 - shift_INa_inact) / 56.66))  # desc: Time constant for slow development of inactivation in INa  in [ms]
         Ahf = 0.99 # : Fraction of INa channels with fast inactivation
         Ahs = 1.0 - Ahf # : Fraction of INa channels with slow inactivation        
         d_hf = (hss - hf) / thf   # desc: Fast componennt of the inactivation gate for INa channels
         d_hs = (hss - hs) / ths   # desc: Slow componennt of the inactivation gate for non-phosphorylated INa channels
         
         h = Ahf * hf + Ahs * hs   # desc: Inactivation gate for INa
-        tj = 2.038 + 1 / (0.02136 * np.exp(-(V + 100.6 - shift_INa_inact) / 8.281) + 0.3052 * np.exp((V + 0.9941 - shift_INa_inact) / 38.45)) # desc: Time constant for j-gate in INa in [ms]
+        tj = 2.038 + 1 / (0.02136 * exp(-(V + 100.6 - shift_INa_inact) / 8.281) + 0.3052 * exp((V + 0.9941 - shift_INa_inact) / 38.45)) # desc: Time constant for j-gate in INa in [ms]
         jss = hss  # desc: Steady-state value for j-gate in INa
         d_j = (jss - j) / tj # desc: Recovery from inactivation gate for non-phosphorylated INa channels
 
         # Phosphorylated channels
         thsp = 3 * ths # desc: Time constant for h-gate of phosphorylated INa channels  in [ms]
-        hssp = 1 / (1 + np.exp((V + 89.1 - shift_INa_inact) / 6.086)) # desc: Steady-state value for h-gate of phosphorylated INa channels        
+        hssp = 1 / (1 + exp((V + 89.1 - shift_INa_inact) / 6.086)) # desc: Steady-state value for h-gate of phosphorylated INa channels        
         d_hsp = (hssp - hsp) / thsp # desc: Slow componennt of the inactivation gate for phosphorylated INa channels
 
         hp = Ahf * hf + Ahs * hsp # desc: Inactivation gate for phosphorylated INa channels
@@ -219,16 +221,16 @@ class INaL():
         #: Maximum conductance          
             
     def diff_eq(self, V, mL, hL, hLp, camk, nernst, ina):
-        mLss = 1.0 / (1.0 + np.exp(-(V + 42.85) / 5.264)) # desc: Steady state value of m-gate for INaL
+        mLss = 1.0 / (1.0 + exp(-(V + 42.85) / 5.264)) # desc: Steady state value of m-gate for INaL
         tmL = ina.tm
         d_mL = (mLss - mL) / tmL # desc: Activation gate for INaL
 
         thL = 200.0 # [ms] : Time constant for inactivation of non-phosphorylated INaL channels
-        hLss = 1.0 / (1.0 + np.exp((V + 87.61) / 7.488))  # desc: Steady-state value for inactivation of non-phosphorylated INaL channels
+        hLss = 1.0 / (1.0 + exp((V + 87.61) / 7.488))  # desc: Steady-state value for inactivation of non-phosphorylated INaL channels
         
         d_hL = (hLss - hL) / thL # desc: Inactivation gate for non-phosphorylated INaL channels
 
-        hLssp = 1.0 / (1.0 + np.exp((V + 93.81) / 7.488)) # desc: Steady state value for inactivation of phosphorylated INaL channels
+        hLssp = 1.0 / (1.0 + exp((V + 93.81) / 7.488)) # desc: Steady state value for inactivation of phosphorylated INaL channels
         thLp = 3 * thL # in [ms] desc: Time constant for inactivation of phosphorylated INaL channels
 
         d_hLp = (hLssp - hLp) / thLp  # desc: Inactivation gate for phosphorylated INaL channels
@@ -269,30 +271,30 @@ class Ito():
             
     def diff_eq(self, V, a, iF, iS, ap, iFp, iSp, camk, nernst):
         
-        ass = 1.0 / (1.0 + np.exp(-(V - 14.34) / 14.82))  # desc: Steady-state value for Ito activation
-        one = 1.0 / (1.2089 * (1 + np.exp(-(V - 18.4099) / 29.3814)))
-        two = 3.5 / (1 + np.exp((V + 100) / 29.3814))
+        ass = 1.0 / (1.0 + exp(-(V - 14.34) / 14.82))  # desc: Steady-state value for Ito activation
+        one = 1.0 / (1.2089 * (1 + exp(-(V - 18.4099) / 29.3814)))
+        two = 3.5 / (1 + exp((V + 100) / 29.3814))
         ta = 1.0515 / (one + two)  # desc: Time constant for Ito activation  in [ms]        
         d_a = (ass - a) / ta   # desc: Ito activation gate
         
-        iss = 1.0 / (1.0 + np.exp((V + 43.94) / 5.711))   # desc: Steady-state value for Ito inactivation
+        iss = 1.0 / (1.0 + exp((V + 43.94) / 5.711))   # desc: Steady-state value for Ito inactivation
         delta_epi = 1.0
-        if self.cell.mode==1:  delta_epi = 1.0 - (0.95 / (1 + np.exp((V + 70.0) / 5.0)))   # desc: Adjustment for different cell types
-        tiF_b = (4.562 + 1 / (0.3933 * np.exp(-(V+100) / 100) + 0.08004 * np.exp((V + 50) / 16.59)))  # desc: Time constant for fast component of Ito inactivation     in [ms]
-        tiS_b = (23.62 + 1 / (0.001416 * np.exp(-(V + 96.52) / 59.05) + 1.780e-8 * np.exp((V + 114.1) / 8.079)))   # desc: Time constant for slow component of Ito inactivation  in [ms]
+        if self.cell.mode==1:  delta_epi = 1.0 - (0.95 / (1 + exp((V + 70.0) / 5.0)))   # desc: Adjustment for different cell types
+        tiF_b = (4.562 + 1 / (0.3933 * exp(-(V+100) / 100) + 0.08004 * exp((V + 50) / 16.59)))  # desc: Time constant for fast component of Ito inactivation     in [ms]
+        tiS_b = (23.62 + 1 / (0.001416 * exp(-(V + 96.52) / 59.05) + 1.780e-8 * exp((V + 114.1) / 8.079)))   # desc: Time constant for slow component of Ito inactivation  in [ms]
         tiF = tiF_b * delta_epi
         tiS = tiS_b * delta_epi
-        AiF = 1.0 / (1.0 + np.exp((V - 213.6) / 151.2))  # desc: Fraction of fast inactivating Ito channels
+        AiF = 1.0 / (1.0 + exp((V - 213.6) / 151.2))  # desc: Fraction of fast inactivating Ito channels
         AiS = 1.0 - AiF        
         d_iF = (iss - iF) / tiF  # desc: Fast component of Ito activation        
         d_iS = (iss - iS) / tiS  # desc: Slow component of Ito activation
         
         i = AiF * iF + AiS * iS     # desc: Inactivation gate for non-phosphorylated Ito
-        assp=1.0/(1.0+np.exp(-(V-24.34)/14.82))        
+        assp=1.0/(1.0+exp(-(V-24.34)/14.82))        
         d_ap = (assp - ap) / ta
             
-        dti_develop = 1.354 + 1e-4 / (np.exp((V - 167.4) / 15.89) + np.exp(-(V - 12.23) / 0.2154))
-        dti_recover = 1 - 0.5 / (1 + np.exp((V+70) / 20))
+        dti_develop = 1.354 + 1e-4 / (exp((V - 167.4) / 15.89) + exp(-(V - 12.23) / 0.2154))
+        dti_recover = 1 - 0.5 / (1 + exp((V+70) / 20))
         tiFp = dti_develop * dti_recover * tiF # desc: Time constant for fast component of inactivation of phosphorylated Ito channels   in [ms]
         tiSp = dti_develop * dti_recover * tiS  # desc: Time constant for slot component of inactivation of phosphorylated Ito channels  in [ms]        
         d_iFp = (iss - iFp) / tiFp # desc: Fast component of inactivation of phosphorylated Ito channels        
@@ -352,14 +354,14 @@ class ICaL():
         vffrt = V * self.phys.FFRT
         
         # Activation
-        dss = 1.0 / (1.0 + np.exp(-(V + 3.94) / 4.23)) # Steady-state value for activation gate of ICaL channel
-        td = 0.6 + 1.0 / (np.exp(-0.05 * (V + 6)) + np.exp(0.09 * (V + 14)))  # Time constant for activation gate of ICaL channel   in [ms]
+        dss = 1.0 / (1.0 + exp(-(V + 3.94) / 4.23)) # Steady-state value for activation gate of ICaL channel
+        td = 0.6 + 1.0 / (exp(-0.05 * (V + 6)) + exp(0.09 * (V + 14)))  # Time constant for activation gate of ICaL channel   in [ms]
         d_d = (dss - d) / td   # Activation gate of ICaL channel
         
         # Inactivation
-        fss = 1.0 / (1.0 + np.exp((V + 19.58) / 3.696)) # Steady-state value for inactivation gate of ICaL channel
-        tff = 7.0 + 1.0 / (0.0045 * np.exp(-(V + 20) / 10) + 0.0045 * np.exp((V + 20) / 10))  # Time constant for fast inactivation of ICaL channels  in [ms]
-        tfs = 1000 + 1.0 / (0.000035 * np.exp(-(V + 5) / 4) + 0.000035 * np.exp((V + 5) / 6)) # Time constant for fast inactivation of ICaL channels  in [ms]
+        fss = 1.0 / (1.0 + exp((V + 19.58) / 3.696)) # Steady-state value for inactivation gate of ICaL channel
+        tff = 7.0 + 1.0 / (0.0045 * exp(-(V + 20) / 10) + 0.0045 * exp((V + 20) / 10))  # Time constant for fast inactivation of ICaL channels  in [ms]
+        tfs = 1000 + 1.0 / (0.000035 * exp(-(V + 5) / 4) + 0.000035 * exp((V + 5) / 6)) # Time constant for fast inactivation of ICaL channels  in [ms]
         Aff = 0.6  # Fraction of ICaL channels with fast inactivation
         Afs = 1.0 - Aff # Fraction of ICaL channels with slow inactivation
         d_ff = (fss - ff) / tff   # Fast inactivation of ICaL channels
@@ -368,9 +370,9 @@ class ICaL():
         
         # Ca-dependent inactivation
         fcass = fss  # Steady-state value for Ca-dependent inactivation of ICaL channels
-        tfcaf = 7.0 + 1.0 / (0.04 * np.exp(-(V - 4.0) / 7.0) + 0.04 * np.exp((V - 4.0) / 7.0))  # Time constant for fast Ca-dependent inactivation of ICaL channels in [ms]
-        tfcas = 100.0 + 1 / (0.00012 * np.exp(-V / 3) + 0.00012 * np.exp(V / 7))  # Time constant for slow Ca-dependent inactivation of ICaL channels  in [ms]
-        Afcaf = 0.3 + 0.6 / (1 + np.exp((V - 10) / 10))  # Fraction of ICaL channels with fast Ca-dependent inactivation
+        tfcaf = 7.0 + 1.0 / (0.04 * exp(-(V - 4.0) / 7.0) + 0.04 * exp((V - 4.0) / 7.0))  # Time constant for fast Ca-dependent inactivation of ICaL channels in [ms]
+        tfcas = 100.0 + 1 / (0.00012 * exp(-V / 3) + 0.00012 * exp(V / 7))  # Time constant for slow Ca-dependent inactivation of ICaL channels  in [ms]
+        Afcaf = 0.3 + 0.6 / (1 + exp((V - 10) / 10))  # Fraction of ICaL channels with fast Ca-dependent inactivation
         Afcas = 1.0 - Afcaf    # Fraction of ICaL channels with slow Ca-dependent inactivation
         d_fcaf = (fcass - fcaf) / tfcaf   # Fast Ca-dependent inactivation of ICaL channels
         d_fcas = (fcass - fcas) / tfcas   # Slow Ca-dependent inactivation of ICaL channels
@@ -397,22 +399,9 @@ class ICaL():
         d_nca = anca * k2n - nca*km2n   # Fraction of channels in Ca-depdent inactivation mode
         
         # Total currents through ICaL channel
-        v0 = 0
-        B_1 = 2.0 * self.phys.FRT
-        A_1 = ( 4.0 * self.phys.FFRT * (cass * np.exp(2 * vfrt) - 0.341 * self.extra.Cao) ) / B_1
-        U_1 = B_1 * (V-v0)
-        PhiCaL = (A_1*U_1)/(np.exp(U_1)-1.0)
-        if -1e-7<=U_1 and U_1<=1e-7 :  PhiCaL = A_1 * (1.0-0.5*U_1)        
-        B_2 = self.phys.FRT
-        A_2 = ( 0.75 * self.phys.FFRT * (Na_ss * np.exp(vfrt) - 0.341 * self.extra.Nao) ) / B_2
-        U_2 = B_2 * (V-v0)
-        PhiCaNa = (A_2*U_2)/(np.exp(U_2)-1.0)
-        if (-1e-7<=U_2 and U_2<=1e-7) :  PhiCaNa = A_2 * (1.0-0.5*U_2) 
-        B_3 = self.phys.FRT
-        A_3 = ( 0.75 * self.phys.FFRT * (K_ss * np.exp(vfrt) - 0.341 * self.extra.Ko) ) / B_3
-        U_3 = B_3 * (V-v0)
-        PhiCaK = (A_3*U_3)/(np.exp(U_3)-1.0)
-        if (-1e-7<=U_3 and U_3<=1e-7) :  PhiCaK = A_3 * (1.0-0.5*U_3)
+        PhiCaL  = 4 * vffrt *(       cass  * exp(2 * vfrt) - 0.341 * self.extra.Cao) / (exp(2 * vfrt) - 1)
+        PhiCaNa = 1 * vffrt *(0.75 * Na_ss   * exp(1 * vfrt) - 0.75  * self.extra.Nao) / (exp(1 * vfrt) - 1)
+        PhiCaK  = 1 * vffrt *(0.75 * K_ss * exp(1 * vfrt) - 0.75  * self.extra.Ko ) / (exp(1 * vfrt) - 1)
         
         PCa_b = 0.0001
         PCa = PCa_b
@@ -458,22 +447,22 @@ class IKr():
     def diff_eq(self, V, xf, xs, camk, nernst):
         
         # Activation
-        sx = 1.0 / (1.0 + np.exp((V + 8.337) / -6.789))  # desc: Steady-state value for IKr activation
-        txf = 12.98 + 1.0 / (0.36520 * np.exp((V - 31.66) / 3.869) + 4.123e-5 * np.exp((V - 47.78) / -20.38))  # Time constant for fast IKr activation
-        txs = 1.865 + 1.0 / (0.06629 * np.exp((V - 34.70) / 7.355) + 1.128e-5 * np.exp((V - 29.74) / -25.94))  # Time constant for slow IKr activation
+        sx = 1.0 / (1.0 + exp((V + 8.337) / -6.789))  # desc: Steady-state value for IKr activation
+        txf = 12.98 + 1.0 / (0.36520 * exp((V - 31.66) / 3.869) + 4.123e-5 * exp((V - 47.78) / -20.38))  # Time constant for fast IKr activation
+        txs = 1.865 + 1.0 / (0.06629 * exp((V - 34.70) / 7.355) + 1.128e-5 * exp((V - 29.74) / -25.94))  # Time constant for slow IKr activation
         d_xf = (sx - xf) / txf   # Fast activation of IKr channels
         d_xs = (sx - xs) / txs  # Slow activation of IKr channels
-        Axf = 1.0 / (1.0 + np.exp((V + 54.81) / 38.21)) # Fraction of IKr channels with fast activation
+        Axf = 1.0 / (1.0 + exp((V + 54.81) / 38.21)) # Fraction of IKr channels with fast activation
         Axs = 1.0 - Axf   # Fraction of IKr channels with slow activation
         x = Axf * xf + Axs * xs   # Activation of IKr channels
         # Inactivation
-        r = 1.0 / (1.0 + np.exp((V + 55.0) / 75.0)) * 1.0 / (1.0 + np.exp((V - 10.0) / 30.0))  # Inactivation of IKr channels
+        r = 1.0 / (1.0 + exp((V + 55.0) / 75.0)) * 1.0 / (1.0 + exp((V - 10.0) / 30.0))  # Inactivation of IKr channels
         # Current
         base = 0.046
         GKr = base
         if self.cell.mode==1 : GKr = 1.3*base
         elif self.cell.mode==2 : GKr = 0.8*base        
-        IKr = GKr * np.sqrt(self.extra.Ko / 5.4) * x * r * (V - nernst.EK) # Rapid delayed Potassium current  in [uA/uF]
+        IKr = GKr * sqrt(self.extra.Ko / 5.4) * x * r * (V - nernst.EK) # Rapid delayed Potassium current  in [uA/uF]
     
         return [d_xf, d_xs], IKr
     
@@ -498,14 +487,14 @@ class IKs():
                     
     def diff_eq(self, V, xs1, xs2, Cai, camk, nernst):
         
-        xs1ss  = 1.0 / (1.0 + np.exp(-(V + 11.60) / 8.932)) # desc: Steady-state value for activation of IKs channels
+        xs1ss  = 1.0 / (1.0 + exp(-(V + 11.60) / 8.932)) # desc: Steady-state value for activation of IKs channels
         txs1_max = 817.3
-        txs1 = txs1_max + 1.0 / (2.326e-4 * np.exp((V + 48.28) / 17.80) + 0.001292 * np.exp(-(V + 210) / 230)) # desc: Time constant for slow, low voltage IKs activation
+        txs1 = txs1_max + 1.0 / (2.326e-4 * exp((V + 48.28) / 17.80) + 0.001292 * exp(-(V + 210) / 230)) # desc: Time constant for slow, low voltage IKs activation
                         
         d_xs1 = (xs1ss - xs1) / txs1  # desc: Slow, low voltage IKs activation
         
         xs2ss = xs1ss
-        txs2 = 1.0 / (0.01 * np.exp((V - 50) / 20) + 0.0193 * np.exp(-(V + 66.54) / 31.0)) # desc: Time constant for fast, high voltage IKs activation
+        txs2 = 1.0 / (0.01 * exp((V - 50) / 20) + 0.0193 * exp(-(V + 66.54) / 31.0)) # desc: Time constant for fast, high voltage IKs activation
         
         d_xs2 = (xs2ss - xs2) / txs2   # desc: Fast, high voltage IKs activation
         
@@ -537,16 +526,16 @@ class IK1():
                     
     def diff_eq(self, V, xk1, camk, nernst):
         
-        xk1ss = 1 / (1 + np.exp(-(V + 2.5538 * self.extra.Ko + 144.59) / (1.5692 * self.extra.Ko + 3.8115))) # Steady-state value for activation of IK1 channels  : sx in 2011
-        txk1 = 122.2 / (np.exp(-(V + 127.2) / 20.36) + np.exp((V + 236.8) / 69.33))  # Time constant for activation of IK1 channels  : tx in 2011        
+        xk1ss = 1 / (1 + exp(-(V + 2.5538 * self.extra.Ko + 144.59) / (1.5692 * self.extra.Ko + 3.8115))) # Steady-state value for activation of IK1 channels  : sx in 2011
+        txk1 = 122.2 / (exp(-(V + 127.2) / 20.36) + exp((V + 236.8) / 69.33))  # Time constant for activation of IK1 channels  : tx in 2011        
         d_xk1 = (xk1ss - xk1) / txk1  # Activation of IK1 channels        
-        rk1 = 1.0 / (1.0 + np.exp((V + 105.8 - 2.6 * self.extra.Ko) / 9.493))   # Inactivation of IK1 channels    : r in 2011            
+        rk1 = 1.0 / (1.0 + exp((V + 105.8 - 2.6 * self.extra.Ko) / 9.493))   # Inactivation of IK1 channels    : r in 2011            
         # desc: Conductivity of IK1 channels, cell-type dependent
         GK1_b = 0.1908 # 0.3239783999999998 in 2017
         GK1 = GK1_b  
         if self.cell.mode==1 :  GK1 = GK1_b * 1.2
         elif self.cell.mode==2 :  GK1 = GK1_b * 1.3        
-        IK1 = GK1 * np.sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
+        IK1 = GK1 * sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
             
         return [d_xk1], IK1
     
@@ -576,8 +565,8 @@ class INaCa():
         self.kcaoff = 5.0e3        
         qna = 0.5224
         qca = 0.1670
-        self.hca    = np.exp(qca * V * self.phys.FRT)
-        self.hna    = np.exp(qna * V * self.phys.FRT)
+        self.hca    = exp(qca * V * self.phys.FRT)
+        self.hna    = exp(qna * V * self.phys.FRT)
         
         # Parameters h
         h1  = 1.0 + Nai / self.kna3 * (1 + self.hna)
@@ -699,8 +688,8 @@ class INaK():
         Knai0 = 9.073
         Knao0 = 27.78
         delta = -0.1550
-        Knai = Knai0 * np.exp(delta * V * self.phys.FRT / 3.0)
-        Knao = Knao0 * np.exp((1.0-delta) * V * self.phys.FRT / 3.0)
+        Knai = Knai0 * exp(delta * V * self.phys.FRT / 3.0)
+        Knao = Knao0 * exp((1.0-delta) * V * self.phys.FRT / 3.0)
         Kki    = 0.5
         Kko    = 0.3582
         MgADP  = 0.05
@@ -749,7 +738,7 @@ class IKb():
             
     def calculate(self, V, nernst):
         
-        xkb = 1.0 / (1.0 + np.exp(-(V - 14.48) / 18.34))
+        xkb = 1.0 / (1.0 + exp(-(V - 14.48) / 18.34))
         GKb_b = 0.003
         GKb = GKb_b
         if self.cell.mode==1: GKb = GKb_b*0.6
@@ -771,9 +760,9 @@ class INab():
         B = self.phys.FRT
         v0 = 0
         PNab = 3.75e-10
-        A = PNab * self.phys.FFRT * (Nai * np.exp(V * self.phys.FRT) - self.extra.Nao) / B            
+        A = PNab * self.phys.FFRT * (Nai * exp(V * self.phys.FRT) - self.extra.Nao) / B            
         U = B * (V - v0)
-        INab = (A*U)/(np.exp(U)-1.0)
+        INab = (A*U)/(exp(U)-1.0)
         # if -1e-7<=U and U<=1e-7: INab = A*(1.0-0.5*U)   # Background Sodium current   in [uA/uF] <- 2017 version
                     
         return INab
@@ -792,9 +781,9 @@ class ICab():
         B = 2 * self.phys.FRT
         v0 = 0
         PCab = 2.5e-8
-        A = PCab * 4.0 * self.phys.FFRT * (Cai * np.exp( 2.0 * V * self.phys.FRT) - 0.341 * self.extra.Cao) / B
+        A = PCab * 4.0 * self.phys.FFRT * (Cai * exp( 2.0 * V * self.phys.FRT) - 0.341 * self.extra.Cao) / B
         U = B * (V - v0)
-        ICab = (A*U)/(np.exp(U)-1.0)
+        ICab = (A*U)/(exp(U)-1.0)
         # if -1e-7<=U and U<=1e-7:  ICab = A*(1.0-0.5*U) # Background Calcium current  in [uA/uF] <- 2017 version
                             
         return ICab
@@ -1162,6 +1151,13 @@ class ORD2011():
             y[0] = self.protocol.get_voltage_at_time(t)
                     
         return self.differential_eq(t, y)
+
+
+    def diff_eq_solve_ivp(self, t, y):
+        return self.response_diff_eq(t, y)
+        
+    def diff_eq_odeint(self, y, t, *p):
+        return self.response_diff_eq(t, y)
    
 
 

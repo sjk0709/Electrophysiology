@@ -8,12 +8,14 @@ from typing import List
 
 from deap import base, creator, tools
 import numpy as np
+from functools import partial 
+import multiprocessing
 from multiprocessing import Pool
 import pickle
 
 import ga_genetic_algorithm_results as genetic_algorithm_results
 
-import os, sys
+import os, sys, time
 
 sys.path.append('./Lib')
 import mod_protocols as protocols
@@ -34,15 +36,13 @@ def run_ga(ga_params, toolbox):
 
     current_array = [current for _ in range(len(population))]
     eval_input = np.transpose([population, current_array])        
-    fitnesses = toolbox.map(toolbox.evaluate, eval_input)
- 
- 
-    for ind, fit in zip(population, fitnesses):     
-        # print(type(ind))  # deap.creator   
-        # print(type(ind[0]))    # ga_genetic_algorithm_results.VCOptimizationIndividual
+    
+    start_time = time.time()
+    fitnesses = toolbox.map(toolbox.evaluate, eval_input)   
+
+    for ind, fit in zip(population, fitnesses):             
         ind.fitness.values = [fit]
-        # print(ind.fitness.values) # (fitness)
-        # print(ind[0].fitness)  # empty
+    print("--- %s seconds ---"%(time.time()-start_time))
         
     initial_population = []
     for i in range(len(population)):
@@ -98,6 +98,7 @@ def run_ga(ga_params, toolbox):
     # print('-'*50)
     return new_current_result
 
+
 def _evaluate(eval_input):
     """Evaluates the fitness of an individual.
 
@@ -107,14 +108,14 @@ def _evaluate(eval_input):
     individual, current = eval_input  
     # print(individual)  # type : deap.creator
     
-    # try:
-    max_contributions = individual[0].evaluate(
-            config=VCGA_PARAMS.config, prestep=5000)        
-    # print(max_contributions)        
-    fitness = max_contributions.loc[max_contributions['Current'] == current][
-            'Contribution'].values[0]
-    # except:
-    #     return 0.0
+    try:
+        max_contributions = individual[0].evaluate(
+                config=VCGA_PARAMS.config, prestep=5000)
+        # print(max_contributions)
+        fitness = max_contributions.loc[max_contributions['Current'] == current][
+                'Contribution'].values[0]
+    except:
+        return 0.0
 
 
     return fitness
@@ -227,7 +228,8 @@ def start_ga(vco_config):
     toolbox.register('mate', _mate)
     toolbox.register('mutate', _mutate)
 
-    p = Pool()
+    
+    p = Pool(processes=4)
     toolbox.register("map", p.map)
     #toolbox.register("map", map)
 
