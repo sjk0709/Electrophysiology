@@ -32,7 +32,7 @@ import pickle
 import bisect
 
 sys.path.append('../')
-from Protocols.pacing_protocol import PacingProtocol
+sys.path.append('../Protocols')
 import simulator_scipy
 
 # Models

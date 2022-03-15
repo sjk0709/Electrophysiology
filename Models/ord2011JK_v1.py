@@ -1147,8 +1147,7 @@ class ORD2011():
         d_V_li = self.membrane.d_V( I_ion + self.stimulus.I )
         
         if self.current_response_info:  # 'INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1'
-            current_timestep = [
-                mod_trace.Current(name='I_ion', value=I_ion),
+            current_timestep = [                
                 mod_trace.Current(name='I_Na', value=INa),
                 mod_trace.Current(name='I_NaL', value=INaL),                
                 mod_trace.Current(name='I_to', value=Ito),

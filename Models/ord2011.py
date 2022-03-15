@@ -1118,15 +1118,14 @@ class ORD2011():
         d_V_li = self.membrane.d_V( I_ion + self.stimulus.I )
         
         if self.current_response_info:  # 'INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1'
-            current_timestep = [
-                mod_trace.Current(name='I_ion', value=I_ion),
-                mod_trace.Current(name='INa', value=INa),
-                mod_trace.Current(name='INaL', value=INaL),                
-                mod_trace.Current(name='Ito', value=Ito),
-                mod_trace.Current(name='ICaL', value=ICaL),
-                mod_trace.Current(name='IKr', value=IKr),
-                mod_trace.Current(name='IKs', value=IKs),
-                mod_trace.Current(name='IK1', value=IK1),
+            current_timestep = [                
+                mod_trace.Current(name='I_Na', value=INa),
+                mod_trace.Current(name='I_NaL', value=INaL),                
+                mod_trace.Current(name='I_to', value=Ito),
+                mod_trace.Current(name='I_CaL', value=ICaL),
+                mod_trace.Current(name='I_Kr', value=IKr),
+                mod_trace.Current(name='I_Ks', value=IKs),
+                mod_trace.Current(name='I_K1', value=IK1),
             ]
             self.current_response_info.currents.append(current_timestep)
             

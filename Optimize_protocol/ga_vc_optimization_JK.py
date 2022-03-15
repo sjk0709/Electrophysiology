@@ -2,26 +2,26 @@
 ADD COMMENT HERE
 """
 
-import copy
+import os, sys, time, copy
 import random
 from typing import List
 
 from deap import base, creator, tools
 import numpy as np
+
 from functools import partial 
 import multiprocessing
 from multiprocessing import Pool
+
 import pickle
 
 import ga_genetic_algorithm_results as genetic_algorithm_results
 
-import os, sys, time
-
 sys.path.append('./Lib')
-import mod_protocols as protocols
-from mod_kernik import KernikModel
-
+sys.path.append('../Protocols')
 sys.path.append('../Models')
+import protocol_lib
+from mod_kernik import KernikModel
 import br1977 
 import ord2011JK_v1
 
@@ -146,7 +146,7 @@ def _mutate(
     for i in range(len(individual.protocol.steps)):
 
         if random.random() < VCGA_PARAMS.config.gene_mutation_probability:
-            individual.protocol.steps[i].mutate(VCGA_PARAMS)
+            individual.protocol.steps[i].mutate(VCGA_PARAMS.config.step_voltage_bounds, VCGA_PARAMS.config.step_duration_bounds)
 
 def _select(
         population: List[
@@ -164,24 +164,21 @@ def _select(
 
 def _init_individual():
     """Initializes a individual with a randomized protocol."""
-    vc = []
+    vc_protocol = protocol_lib.VoltageClampProtocol()    
     for i in range(VCGA_PARAMS.config.steps_in_protocol): # 4
         which_vc = random.choice(VCGA_PARAMS.config.step_types)  # 'step' or 'ramp'
         if which_vc == 'step':
-            random_vc = protocols.VoltageClampStep()
+            random_vc = protocol_lib.VoltageClampStep()
         elif which_vc == 'ramp':
-            random_vc = protocols.VoltageClampRamp()
+            random_vc = protocol_lib.VoltageClampRamp()
         else:
-            random_vc = protocols.VoltageClampSinusoid()
-        
-        random_vc.set_to_random_step(            
-            voltage_bounds=VCGA_PARAMS.config.step_voltage_bounds,    # -> (-120, 60)
-            duration_bounds=VCGA_PARAMS.config.step_duration_bounds)  # -> (5, 1000)
-
-        vc.append(random_vc)
+            random_vc = protocol_lib.VoltageClampSinusoid()        
+        random_vc.set_to_random_step( voltage_bounds=VCGA_PARAMS.config.step_voltage_bounds,    # -> (-120, 60)
+                                      duration_bounds=VCGA_PARAMS.config.step_duration_bounds )  # -> (5, 1000)
+        vc_protocol.add(random_vc)                    
     
     return genetic_algorithm_results.VCOptimizationIndividual(
-                            protocol=protocols.VoltageClampProtocol(steps=vc),  
+                            protocol=vc_protocol,  
                             fitness=0.0 )
 
 class VCGAParams():
@@ -229,7 +226,7 @@ def start_ga(vco_config):
     toolbox.register('mutate', _mutate)
 
     
-    p = Pool(processes=4)
+    p = Pool()
     # toolbox.register("map", p.map)
     #toolbox.register("map", map)
 

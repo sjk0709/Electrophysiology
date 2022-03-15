@@ -76,8 +76,7 @@ class VoltageClampRamp():
         return (abs(self.voltage - other.voltage) < 0.001 and
                 abs(self.duration - other.duration) < 0.001)
 
-    def get_voltage(self, time):
-        # print(time, self.duration)
+    def get_voltage(self, time):        
         fraction_change = time / self.duration
         voltage_change = self.voltage_end - self.voltage_start
         return self.voltage_start + fraction_change * voltage_change 
