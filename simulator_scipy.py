@@ -12,8 +12,7 @@ from scipy.integrate import ode, solve_ivp, odeint
 from scipy.optimize import curve_fit, least_squares
 
 sys.path.append('./Protocols')
-from pacing_protocol import PacingProtocol
-import mod_protocols
+import protocol_lib
 
 class Simulator:
     """
@@ -43,9 +42,9 @@ class Simulator:
         protocol_temp = copy.copy(self.model.protocol)
         self.model.protocol = protocol           
         if protocol == 'constant':            
-            self.model.protocol = mod_protocols.VoltageClampProtocol( [mod_protocols.VoltageClampStep(voltage=self.model.y0[0], duration=pre_step)] )
+            self.model.protocol = protocol_lib.VoltageClampProtocol( [protocol_lib.VoltageClampStep(voltage=self.model.y0[0], duration=pre_step)] )
         elif protocol =='pacing':
-            self.model.protocol = PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
+            self.model.protocol = protocol_lib.PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
         elif protocol==None:            
             self.model.protocol = protocol_temp        
         
@@ -81,9 +80,9 @@ class Simulator:
         protocol_temp = copy.copy(self.model.protocol)
         self.model.protocol = protocol           
         if protocol == 'constant':            
-            self.model.protocol = mod_protocols.VoltageClampProtocol( [mod_protocols.VoltageClampStep(voltage=self.model.y0[0], duration=pre_step)] )
+            self.model.protocol = protocol_lib.VoltageClampProtocol( [protocol_lib.VoltageClampStep(voltage=self.model.y0[0], duration=pre_step)] )
         elif protocol =='pacing':
-            self.model.protocol = PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
+            self.model.protocol = protocol_lib.PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
         elif protocol==None:            
             self.model.protocol = protocol_temp        
         

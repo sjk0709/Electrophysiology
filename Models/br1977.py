@@ -1,22 +1,20 @@
 import os, sys
 import time, glob
-
 import random
+from math import log, sqrt, floor, exp
 import numpy as np
 import matplotlib.pyplot as plt
 
 import multiprocessing
 from functools import partial 
 from tqdm import tqdm
-
 # import pickle
 # import bisect
 
-sys.path.append('../')
-sys.path.append('../Lib')
 sys.path.append('../Protocols')
-from pacing_protocol import PacingProtocol
-import mod_trace as trace
+sys.path.append('../Lib')
+import protocol_lib
+import mod_trace
         
         
 class Membrane():
@@ -54,24 +52,24 @@ class INa():
         '''
         The activation parameter       
         '''
-        alpha = (V + 47) / (1 - np.exp(-0.1 * (V + 47)))
-        beta  = 40 * np.exp(-0.056 * (V + 72))        
+        alpha = (V + 47) / (1 - exp(-0.1 * (V + 47)))
+        beta  = 40 * exp(-0.056 * (V + 72))        
         return alpha * (1 - m) - beta * m  # 
     
     def dot_h(self, h, V):
         '''
         An inactivation parameter   
         '''
-        alpha = 0.126 * np.exp(-0.25 * (V + 77))
-        beta  = 1.7 / (1 + np.exp(-0.082 * (V + 22.5)))
+        alpha = 0.126 * exp(-0.25 * (V + 77))
+        beta  = 1.7 / (1 + exp(-0.082 * (V + 22.5)))
         return alpha * (1 - h) - beta * h  # 
     
     def dot_j(self, j, V):
         '''
         An inactivation parameter
         '''
-        alpha = 0.055 * np.exp(-0.25 * (V + 78)) / (1 + np.exp(-0.2 * (V + 78)))
-        beta  = 0.3 / (1 + np.exp(-0.1 * (V + 32)))
+        alpha = 0.055 * exp(-0.25 * (V + 78)) / (1 + exp(-0.2 * (V + 78)))
+        beta  = 0.3 / (1 + exp(-0.1 * (V + 32)))
         return alpha * (1 - j) - beta * j  # 
             
     def I(self, m, h, j, V):        
@@ -91,13 +89,13 @@ class Isi():
         self.gsBar = 0.09    
 
     def dot_d(self, d, V):
-        alpha = 0.095 * np.exp(-0.01 * (V + -5)) / (np.exp(-0.072 * (V + -5)) + 1)
-        beta  = 0.07 * np.exp(-0.017 * (V + 44)) / (np.exp(0.05 * (V + 44)) + 1)
+        alpha = 0.095 * exp(-0.01 * (V + -5)) / (exp(-0.072 * (V + -5)) + 1)
+        beta  = 0.07 * exp(-0.017 * (V + 44)) / (exp(0.05 * (V + 44)) + 1)
         return alpha * (1 - d) - beta * d
         
     def dot_f(self, f, V):
-        alpha = 0.012 * np.exp(-0.008 * (V + 28)) / (np.exp(0.15 * (V + 28)) + 1)
-        beta  = 0.0065 * np.exp(-0.02 * (V + 30)) / (np.exp(-0.2 * (V + 30)) + 1)
+        alpha = 0.012 * exp(-0.008 * (V + 28)) / (exp(0.15 * (V + 28)) + 1)
+        beta  = 0.0065 * exp(-0.02 * (V + 30)) / (exp(-0.2 * (V + 30)) + 1)
         return alpha * (1 - f) - beta * f
         
     def dot_Cai(self, Isi, Cai):
@@ -113,7 +111,7 @@ class Isi():
         The slow inward current, primarily carried by calcium ions. Called either
         "iCa" or "is" in the paper.
         """        
-        Es = - 82.3 - 13.0287 * np.log(Cai)        # in [mV]
+        Es = - 82.3 - 13.0287 * log(Cai)        # in [mV]
         return self.gsBar * d * f * (V - Es)         # in [uA/cm^2]
     
 
@@ -126,7 +124,7 @@ class IK1():
         in [uA/cm^2]
         A time-independent outward potassium current exhibiting inward-going rectification
         """
-        return 0.35 * (4 * (np.exp(0.04 * (V + 85)) - 1) / (np.exp(0.08 * (V + 53)) + np.exp(0.04 * (V + 53))) + 0.2 * (V + 23) / (1 - np.exp(-0.04 * (V + 23)))
+        return 0.35 * (4 * (exp(0.04 * (V + 85)) - 1) / (exp(0.08 * (V + 53)) + exp(0.04 * (V + 53))) + 0.2 * (V + 23) / (1 - exp(-0.04 * (V + 23)))
     )
         
         
@@ -135,8 +133,8 @@ class Ix1():
         self.x1 = 0.0004
         
     def dot_x1(self, x1, V):
-        alpha = 0.0005 * np.exp(0.083 * (V + 50)) / (np.exp(0.057 * (V + 50)) + 1)
-        beta  = 0.0013 * np.exp(-0.06 * (V + 20)) / (np.exp(-0.04 * (V + 333)) + 1)
+        alpha = 0.0005 * exp(0.083 * (V + 50)) / (exp(0.057 * (V + 50)) + 1)
+        beta  = 0.0013 * exp(-0.06 * (V + 20)) / (exp(-0.04 * (V + 333)) + 1)
         return alpha * (1 - x1) - beta * x1
     
     def I(self, x1, V):        
@@ -144,7 +142,7 @@ class Ix1():
         in [uA/cm^2]
         A voltage- and time-dependent outward current, primarily carried by potassium ions 
         """        
-        return x1 * 0.8 * (np.exp(0.04 * (V + 77)) - 1) / np.exp(0.04 * (V + 35))
+        return x1 * 0.8 * (exp(0.04 * (V + 77)) - 1) / exp(0.04 * (V + 35))
     
         
         
@@ -156,7 +154,7 @@ class BR1977():
 
         self.name = "BR1977"
         
-        self.current_response_info = trace.CurrentResponseInfo(protocol)
+        self.current_response_info = mod_trace.CurrentResponseInfo(protocol)
         
         self.protocol = protocol
         
@@ -208,10 +206,10 @@ class BR1977():
         
         if self.current_response_info:
             current_timestep = [
-                trace.Current(name='I_Na', value=INa),
-                trace.Current(name='I_si', value=Isi),
-                trace.Current(name='I_K1', value=IK1),
-                trace.Current(name='I_x1', value=Ix1),               
+                mod_trace.Current(name='I_Na', value=INa),
+                mod_trace.Current(name='I_si', value=Isi),
+                mod_trace.Current(name='I_K1', value=IK1),
+                mod_trace.Current(name='I_x1', value=Ix1),               
             ]
             self.current_response_info.currents.append(current_timestep)
             
@@ -220,19 +218,15 @@ class BR1977():
     
     def response_diff_eq(self, t, y):
         
-        if type(self.protocol) == PacingProtocol :
-            if self.protocol.type=='AP':            
-                face = self.protocol.pacing(t)
-                self.stimulus.cal_stimulation(face) # Stimulus    
-            
-            elif self.protocol.type=='VC':
-                y[0] = self.protocol.voltage_at_time(t)
-
-        else:
+        if isinstance(self.protocol, protocol_lib.PacingProtocol)  :                      
+            face = self.protocol.pacing(t)
+            self.stimulus.cal_stimulation(face) # Stimulus    
+        else:                         
             y[0] = self.protocol.get_voltage_at_time(t)
                     
         return self.differential_eq(t, y)
-   
+
+
     def diff_eq_solve_ivp(self, t, y):
         return self.response_diff_eq(t, y)
         

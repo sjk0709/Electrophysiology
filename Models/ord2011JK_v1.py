@@ -10,15 +10,14 @@ import matplotlib.pyplot as plt
 import multiprocessing
 from functools import partial 
 from tqdm import tqdm
-from numba import jit
 # import pickle
 # import bisect
 
-sys.path.append('../')
-sys.path.append('../Lib')
 sys.path.append('../Protocols')
-from pacing_protocol import PacingProtocol
-import mod_trace as trace
+sys.path.append('../Lib')
+import protocol_lib
+import mod_trace
+
         
 
 '''
@@ -1047,7 +1046,7 @@ class ORD2011():
         self.cell = Cell(self.phys)        
         self.extra = Extra()
         
-        self.current_response_info = trace.CurrentResponseInfo(protocol)
+        self.current_response_info = mod_trace.CurrentResponseInfo(protocol)
         
         self.protocol = protocol
         
@@ -1149,13 +1148,14 @@ class ORD2011():
         
         if self.current_response_info:  # 'INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1'
             current_timestep = [
-                trace.Current(name='I_Na', value=INa),
-                trace.Current(name='I_NaL', value=INaL),                
-                trace.Current(name='I_to', value=Ito),
-                trace.Current(name='I_CaL', value=ICaL),
-                trace.Current(name='I_Kr', value=IKr),
-                trace.Current(name='I_Ks', value=IKs),
-                trace.Current(name='I_K1', value=IK1),
+                mod_trace.Current(name='I_ion', value=I_ion),
+                mod_trace.Current(name='I_Na', value=INa),
+                mod_trace.Current(name='I_NaL', value=INaL),                
+                mod_trace.Current(name='I_to', value=Ito),
+                mod_trace.Current(name='I_CaL', value=ICaL),
+                mod_trace.Current(name='I_Kr', value=IKr),
+                mod_trace.Current(name='I_Ks', value=IKs),
+                mod_trace.Current(name='I_K1', value=IK1),
             ]
             self.current_response_info.currents.append(current_timestep)
             
@@ -1166,14 +1166,9 @@ class ORD2011():
     
     def response_diff_eq(self, t, y):
         
-        if type(self.protocol) == PacingProtocol :
-            if self.protocol.type=='AP':            
-                face = self.protocol.pacing(t)
-                self.stimulus.cal_stimulation(face) # Stimulus    
-            
-            elif self.protocol.type=='VC':
-                y[0] = self.protocol.voltage_at_time(t)
-
+        if isinstance(self.protocol, protocol_lib.PacingProtocol)  :                      
+            face = self.protocol.pacing(t)
+            self.stimulus.cal_stimulation(face) # Stimulus    
         else:                         
             y[0] = self.protocol.get_voltage_at_time(t)
                     

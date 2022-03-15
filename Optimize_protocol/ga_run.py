@@ -33,7 +33,7 @@ VCO_CONFIG = ga_configs.VoltageOptimizationConfig(
     with_artefact=WITH_ARTEFACT,
     model_name='ORD2011')
 
-LIST_OF_CURRENTS = [ 'I_NaL', 'I_to', 'I_CaL', 'I_Kr', 'I_Ks', 'I_K1' ]# ['I_Na', 'I_Kr', 'I_Ks', 'I_To', 'I_F', 'I_CaL', 'I_K1'] # ['INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1' ]
+LIST_OF_CURRENTS = [ 'I_Na', 'I_NaL', 'I_to', 'I_CaL', 'I_Kr', 'I_Ks', 'I_K1' ]# ['I_Na', 'I_Kr', 'I_Ks', 'I_To', 'I_F', 'I_CaL', 'I_K1'] # ['INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1' ]
 
 def main():
     """Run parameter tuning or voltage clamp protocol experiments here

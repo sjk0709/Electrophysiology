@@ -2,16 +2,20 @@ import os, sys
 import time, glob
 
 import random
+import math
+from math import log, sqrt, floor, exp
 import numpy as np
 import matplotlib.pyplot as plt
 
 import multiprocessing
 from functools import partial 
 from tqdm import tqdm
-
 # import pickle
 # import bisect
 
+sys.path.append('../Protocols')
+sys.path.append('../Lib')
+import protocol_lib
 
 # Parameter range setting
 parameter_ranges = []
@@ -72,7 +76,7 @@ class Kylie2017IKr():
         #Ki = 125 [mM]  # for iPSC solution
         self.Ko = 4    # [mM]
         #Ko = 3.75 [mM]  # for iPSC solution
-        self.EK = self.RTF * np.log(self.Ko / self.Ki)  # in [V]
+        self.EK = self.RTF * log(self.Ko / self.Ki)  # in [V]
         
         self.g = 0.1524 * 1e3 # [pA/V]
         self.p1 = 2.26e-4 * 1e3 # [1/s]
@@ -84,7 +88,7 @@ class Kylie2017IKr():
         self.p7 = 5.15e-3 * 1e3 # [1/s]
         self.p8 = 0.03158 * 1e3 # [1/V]
 
-        self.y0 = [0.0, self.open0, self.active0]
+        self.y0 = [self.open0, self.active0]
         self.params = [self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8]
 
     def set_params(self, g, p1, p2, p3, p4, p5, p6, p7, p8):
@@ -99,41 +103,42 @@ class Kylie2017IKr():
         self.p8 = p8 # [1/V]
         self.params = [g, p1, p2, p3, p4, p5, p6, p7, p8]
 
-    def voltage(self, times):                     
-        return np.array([self.protocol.voltage_at_time(t) for t in times])
-
-    def set_result(self, t, y, log=None):
-        self.times =  t
-        self.V = self.voltage(t)
-        self.open = y[1]  
-        self.active = y[2]                  
+    def set_result(self, times, y, log=None):
+        self.times =  times
+        self.V = np.array(self.protocol.get_voltage_clamp_protocol(times))
+        self.open = y[0]  
+        self.active = y[1]                  
         self.IKr = self.g * self.open * self.active * (self.V - self.EK)
     
     def differential_eq(self, t, y):    
-        V, a, r = y            
-        k1 = self.p1*np.exp(self.p2*V)
-        k2 = self.p3*np.exp(-self.p4*V)
-        k3 = self.p5*np.exp(self.p6*V)
-        k4 = self.p7*np.exp(-self.p8*V)
+        a, r = y
+        V = self.protocol.get_voltage_at_time(t)
+        k1 = self.p1*exp(self.p2*V)
+        k2 = self.p3*exp(-self.p4*V)
+        k3 = self.p5*exp(self.p6*V)
+        k4 = self.p7*exp(-self.p8*V)
         tau_a = 1.0/(k1+k2)
         tau_r = 1.0/(k3+k4)
         a_inf = k1/(k1+k2)
         r_inf = k4/(k3+k4) 
         da = (a_inf-a)/tau_a
-        dr = (r_inf-r)/tau_r  
-        dV = 0
-        return [dV, da, dr]
+        dr = (r_inf-r)/tau_r          
+        return [da, dr]
 
     def response_diff_eq(self, t, y):
         
-        if self.protocol.type=='AP':            
+        if isinstance(self.protocol, protocol_lib.PacingProtocol)  :                      
             face = self.protocol.pacing(t)
             self.stimulus.cal_stimulation(face) # Stimulus    
-            
-        elif self.protocol.type=='VC':
-            y[0] = self.protocol.voltage_at_time(t)
-        
+                            
         return self.differential_eq(t, y)
+
+
+    def diff_eq_solve_ivp(self, t, y):
+        return self.response_diff_eq(t, y)
+        
+    def diff_eq_odeint(self, y, t, *p):
+        return self.response_diff_eq(t, y)
         
         
         
@@ -142,10 +147,10 @@ class Kylie2017IKr():
         def myode(ar, t):           
             a, r = ar        
             V = self.protocol.voltage_at_time(t)    
-            k1 = p1*np.exp(p2*V)
-            k2 = p3*np.exp(-p4*V)
-            k3 = p5*np.exp(p6*V)
-            k4 = p7*np.exp(-p8*V)
+            k1 = p1*exp(p2*V)
+            k2 = p3*exp(-p4*V)
+            k3 = p5*exp(p6*V)
+            k4 = p7*exp(-p8*V)
             tau_a = 1/(k1+k2)
             tau_r = 1/(k3+k4)
             a_inf = k1/(k1+k2)

@@ -14,27 +14,16 @@ class Simulator:
     """
     
     """
-    def __init__(self, model_path, protocol=None, max_step=None, abs_tol=1e-06, rel_tol=0.0001):
+    def __init__(self, model, protocol=None, max_step=None, abs_tol=1e-06, rel_tol=0.0001, vhold=0):
         '''
         
         '''
         # Get model
-        self.model, self.protocol, self._script = myokit.load(model_path)
+        # self.model, self.protocol, self._script = myokit.load(model_path)
+        self.model = model
+        self.protocol = protocol             
 
-        if type(protocol)==myokit._protocol.Protocol:
-            self.protocol = protocol             
-
-        elif protocol == "Stair":
-            self.protocol_total_duration = 0                        
-            self.model, steps = protocol(self.model)
-            self.protocol = myokit.Protocol()            
-            for f, t in steps:
-                self.protocol.add_step(f, t)
-                self.protocol_total_duration += t
-            self.vhold = steps[0][0]
-        
-        self.bcl = 1000        
-        self.vhold = 0  # -80e-3      -88.0145         
+        self.vhold = vhold#     -88.0145         
                 
         # basename = os.path.basename(model_path)        
         # self.name = os.path.splitext(basename)[0]                
@@ -46,9 +35,11 @@ class Simulator:
 
 
         self.simulation = myokit.Simulation(self.model, self.protocol)
-        self.simulation.set_tolerance(abs_tol, rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
+        self.simulation.set_tolerance(abs_tol=abs_tol, rel_tol=rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
         self.simulation.set_max_step_size(max_step)
         self.init_state = self.simulation.state()
+
+        self.pre_sim_state = False
 
     def set_simulation_params(self, parameters):
         '''
@@ -75,10 +66,16 @@ class Simulator:
             self.simulation.set_state(self.pre_init_state)            
             self.pre_simulation.pre(pre_step)
             self.simulation.set_state(self.pre_simulation.state())
+
+        self.pre_sim_state = True
         
         return self.simulation.state()
 
     def simulate(self, end_time, log_times=None, extra_log=[]):      
+        
+        if not self.pre_sim_state:
+            self.simulation.reset()     
+            self.simulation.set_state(self.init_state)
         
         # Run simulation
         try:
@@ -88,6 +85,8 @@ class Simulator:
                                         ).npview()
         except myokit.SimulationError:
             return float('inf')
+
+        self.pre_sim_state = False
             
         return result
 
