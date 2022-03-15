@@ -11,3 +11,12 @@
 * model file : kylie2017IKr.py
 * paper : https://www.sciencedirect.com/science/article/pii/S0006349519305971
 * reference code : https://github.com/CardiacModelling/hERGRapidCharacterisation
+
+## Protocols
+* The code related to the protocol referenced Christini-Lab's codes(https://github.com/Christini-Lab)
+
+## References
+https://www.sciencedirect.com/science/article/pii/S0006349519305971
+https://github.com/CardiacModelling/hERGRapidCharacterisation
+https://github.com/Christini-Lab/vc-optimization-cardiotoxicity
+https://www.biorxiv.org/content/10.1101/2021.09.10.459625v1.full
