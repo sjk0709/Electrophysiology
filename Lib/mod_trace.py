@@ -445,14 +445,11 @@ class Trace:
     def plot_currents_contribution(self, current, window=10, step_size=5, 
             title=None, saved_to=None, voltage_bounds=None,
             fig=None, axs=None, is_shown=True):
-        current_contributions = self.current_response_info.\
-            get_current_contributions(
-                time=self.t,
-                window=window,
-                step_size=step_size)
+        current_contributions = self.current_response_info.get_current_contributions( time=self.t,
+                                                                                      window=window,
+                                                                                      step_size=step_size)
 
-        total_current = [i for i in 
-                self.current_response_info.get_current_summed()]
+        total_current = [i for i in self.current_response_info.get_current_summed()]
         c = []
         for t in self.t:
             #for each timepoint, find the closest times in 

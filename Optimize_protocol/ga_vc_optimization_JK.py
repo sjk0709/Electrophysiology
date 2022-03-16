@@ -5,25 +5,19 @@ ADD COMMENT HERE
 import os, sys, time, copy
 import random
 from typing import List
-
-from deap import base, creator, tools
 import numpy as np
-
 from functools import partial 
 import multiprocessing
-from multiprocessing import Pool
-
 import pickle
-
+from deap import base, creator, tools
 import ga_genetic_algorithm_results as genetic_algorithm_results
-
-sys.path.append('./Lib')
 sys.path.append('../Protocols')
-sys.path.append('../Models')
 import protocol_lib
-from mod_kernik import KernikModel
+sys.path.append('../Models')
 import br1977 
 import ord2011JK_v1
+sys.path.append('./Lib')
+from mod_kernik import KernikModel
 
 
 def run_ga(ga_params, toolbox):
@@ -226,8 +220,8 @@ def start_ga(vco_config):
     toolbox.register('mutate', _mutate)
 
     
-    p = Pool()
-    # toolbox.register("map", p.map)
+    p = multiprocessing.Pool(processes=72)
+    toolbox.register("map", p.map)
     #toolbox.register("map", map)
 
     final_population = run_ga(VCGA_PARAMS, toolbox)

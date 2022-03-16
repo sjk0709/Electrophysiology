@@ -10,6 +10,46 @@ import matplotlib.pyplot as plt
 
 
 
+def get_tangent_yIntercept(p1 : list, p2 : list) :
+    '''
+    Get the tangent and y-intercept of a line(y=ax+b) from points p1 and p2
+    p1 = (x1, y1)
+    p2 = (x2, y2)
+    y=ax+b  <- a: tangent  |  b: y-intercept
+    return a, b
+    '''
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    a = float('inf')
+    if dx != 0:  a = dy/dx
+    b = -a*p1[0] + p1[1]
+    return a, b
+
+def transform_to_mmt_ramp_script(ramp, time_start):            
+    time_end = time_start + ramp.duration
+    m, b = get_tangent_yIntercept((time_start, ramp.voltage_start), (time_end, ramp.voltage_end))        
+    mmt_script = f'engine.time >= {time_start} and engine.time < {time_end+0.000001}, ({b} + {m} * engine.time), '                             
+    return mmt_script
+
+import myokit
+def transform_to_myokit_protocol(VC_protocol, model_myokit):
+    protocol_myokit = myokit.Protocol()
+    ramp_script = 'piecewise('
+    end_times = 0
+    for step in VC_protocol.steps:        
+        if isinstance(step, VoltageClampStep):
+            protocol_myokit.add_step(step.voltage/1000, step.duration)
+        elif isinstance(step, VoltageClampRamp):
+            protocol_myokit.add_step(0.5*(step.voltage_end+step.voltage_start)/1000, step.duration)
+            ramp_script += transform_to_mmt_ramp_script(step, end_times) 
+        end_times += step.duration
+    ramp_script += 'engine.pace)'
+    # print(ramp_script)
+    model_myokit.get('membrane.V').set_rhs(ramp_script)
+    return model_myokit, protocol_myokit
+
+    
+
 def mutate(bounds, value, normal_denom=20):
     new_val_offset = np.random.normal(
         loc=0,
@@ -461,16 +501,11 @@ class VoltageClampSinusoid:
 
 
 
-
-
-
-
-
-
-
 PROTOCOL_TYPE = Union[
     SpontaneousProtocol,
     IrregularPacingProtocol,
     VoltageClampProtocol,
     PacedProtocol
 ]
+
+

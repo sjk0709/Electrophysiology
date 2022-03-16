@@ -7,9 +7,8 @@ from math import floor
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
 import myokit
-
+import protocol_lib
 
 def leak_staircase(model, return_capmask=False):
     # My 'test6_v3'/staircase-ramp protocol
@@ -49,6 +48,7 @@ def leak_staircase(model, return_capmask=False):
     steps += [(-120e-3, tstep - 10e-3)]  # second ramp step
     steps += [(vhold, 100)]
     # Set ramp bit
+    
     model.get('membrane.V').set_rhs(
                 'piecewise('
                 +
@@ -78,3 +78,7 @@ def leak_staircase(model, return_capmask=False):
         protocol.add_step(f, t)
 
     return model, protocol, capmask
+
+
+
+
