@@ -1,5 +1,5 @@
 """Contains protocols to act in silico to probe cellular mechanics."""
-
+import os, sys
 import bisect
 from typing import List, Union
 import random
@@ -7,7 +7,9 @@ from math import floor
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import myokit
+sys.path.append('../Lib')
+import mod_protocols
 
 
 def get_tangent_yIntercept(p1 : list, p2 : list) :
@@ -31,15 +33,15 @@ def transform_to_mmt_ramp_script(ramp, time_start):
     mmt_script = f'engine.time >= {time_start} and engine.time < {time_end}, {b} + {m} * engine.time, '                             
     return mmt_script
 
-import myokit
+
 def transform_to_myokit_protocol(VC_protocol, model_myokit):
     protocol_myokit = myokit.Protocol()
     ramp_script = 'piecewise('
     end_times = 0
-    for step in VC_protocol.steps:        
-        if isinstance(step, VoltageClampStep):
+    for step in VC_protocol.steps:            
+        if isinstance(step, VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep) :
             protocol_myokit.add_step(step.voltage, step.duration)
-        elif isinstance(step, VoltageClampRamp):
+        elif isinstance(step, VoltageClampRamp)or isinstance(step, mod_protocols.VoltageClampRamp):
             protocol_myokit.add_step(0.5*(step.voltage_end+step.voltage_start), step.duration)
             ramp_script += transform_to_mmt_ramp_script(step, end_times) 
         end_times += step.duration
