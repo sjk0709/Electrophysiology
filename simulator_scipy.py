@@ -66,7 +66,7 @@ class Simulator:
         method : RK45 | LSODA | DOP853 | Radau | BDF | RK23
         '''                            
         self.solution = solve_ivp(self.model.diff_eq_solve_ivp, t_span, y0=self.model.y0, t_eval=t_eval,
-                                dense_output=True, 
+                                dense_output=False, 
                                 method=method, # RK45 | LSODA | DOP853 | Radau | BDF | RK23
                                 max_step=max_step, atol=atol, rtol=rtol )            
         self.model.set_result(self.solution.t, self.solution.y, log)
