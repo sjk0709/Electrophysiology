@@ -50,6 +50,18 @@ def transform_to_myokit_protocol(VC_protocol, model_myokit):
     model_myokit.get('membrane.V').set_rhs(ramp_script)
     return model_myokit, protocol_myokit
     
+def transform_to_myokit_protocol2(VC_protocol):
+    end_times = 0
+    protocol_myokit = myokit.Protocol()
+    for step in VC_protocol.steps:            
+        if isinstance(step, VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep) :
+            protocol_myokit.add_step(step.voltage, step.duration)
+        elif isinstance(step, VoltageClampRamp)or isinstance(step, mod_protocols.VoltageClampRamp):
+            # protocol_myokit.add_step( (step.voltage_start, step.voltage_end), step.duration)
+            protocol_myokit.schedule( (step.voltage_start, step.voltage_end), end_times, step.duration)
+        end_times += step.duration
+    return protocol_myokit
+
 
 def mutate(bounds, value, normal_denom=20):
     new_val_offset = np.random.normal(

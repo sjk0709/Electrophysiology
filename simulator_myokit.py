@@ -41,6 +41,19 @@ class Simulator:
 
         self.pre_sim_state = False
 
+    def set_simulation(self, model, protocol, max_step=None, abs_tol=1e-06, rel_tol=0.0001, vhold=0):
+        self.model = model
+        self.protocol = protocol    
+        p = myokit.pacing.constant(self.vhold)
+        self.pre_simulation = myokit.Simulation(self.model, p)
+        self.pre_init_state = self.pre_simulation.state()
+
+        self.simulation = myokit.Simulation(self.model, self.protocol)
+        self.simulation.set_tolerance(abs_tol=abs_tol, rel_tol=rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
+        self.simulation.set_max_step_size(max_step)
+        self.init_state = self.simulation.state()
+
+
     def set_simulation_params(self, parameters):
         '''
         parameters : dictionary

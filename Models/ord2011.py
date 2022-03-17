@@ -268,11 +268,11 @@ class Ito():
          
             
     def diff_eq(self, V, a, iF, iS, ap, iFp, iSp, camk, nernst):
-        
-        ass = 1.0 / (1.0 + exp(-(V - 14.34) / 14.82))  # desc: Steady-state value for Ito activation
+                
         one = 1.0 / (1.2089 * (1 + exp(-(V - 18.4099) / 29.3814)))
         two = 3.5 / (1 + exp((V + 100) / 29.3814))
         ta = 1.0515 / (one + two)  # desc: Time constant for Ito activation  in [ms]        
+        ass = 1.0 / (1.0 + exp(-(V - 14.34) / 14.82))  # desc: Steady-state value for Ito activation
         d_a = (ass - a) / ta   # desc: Ito activation gate
         
         iss = 1.0 / (1.0 + exp((V + 43.94) / 5.711))   # desc: Steady-state value for Ito inactivation
@@ -304,9 +304,8 @@ class Ito():
         Gto_b = 0.02
         Gto = Gto_b
         if self.cell.mode==1 :  Gto = Gto_b*4.0
-        elif self.cell.mode==2 :  Gto = Gto_b*4.0        
-        fItop = camk.f        
-        Ito = Gto * (V - nernst.EK) * ((1 - fItop) * a * i + fItop * ap * ip) # desc: Transient outward Potassium current
+        elif self.cell.mode==2 :  Gto = Gto_b*4.0                 
+        Ito = Gto * (V - nernst.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip) # desc: Transient outward Potassium current
     
         return [d_a, d_iF, d_iS, d_ap, d_iFp, d_iSp], Ito
     
