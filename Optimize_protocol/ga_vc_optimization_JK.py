@@ -187,6 +187,8 @@ class VCGAParams():
             self.cell_model = br1977.BR1977
         elif model_name == 'ORD2011':            
             self.cell_model = ord2011JK_v1.ORD2011
+        elif model_name == 'ORD2017':            
+            self.cell_model = ord2011JK_v1.ORD2011
         else:
             self.cell_model = paci_2018.PaciModel
 

@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, copy
 import time, glob
 
 import random
@@ -7,51 +7,81 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import myokit
-   
+
+
+sys.path.append('../Protocols')
+sys.path.append('../Lib')
+import protocol_lib
+import mod_trace
+import mod_protocols
+
+
+
+
+def get_tangent_yIntercept(p1 : list, p2 : list) :
+    '''
+    Get the tangent and y-intercept of a line(y=ax+b) from points p1 and p2
+    p1 = (x1, y1)
+    p2 = (x2, y2)
+    y=ax+b  <- a: tangent  |  b: y-intercept
+    return a, b
+    '''
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    a = float('inf')
+    if dx != 0:  a = dy/dx
+    b = -a*p1[0] + p1[1]
+    return a, b
+
 
 
 class Simulator:
     """
     
     """
-    def __init__(self, model, protocol=None, max_step=None, abs_tol=1e-06, rel_tol=0.0001, vhold=0):
+    def __init__(self, model=None, protocol=None, max_step=None, abs_tol=1e-06, rel_tol=0.0001, vhold=-80):
         '''
         
         '''
+        self.name = 'Myokit'
         # Get model
         # self.model, self.protocol, self._script = myokit.load(model_path)
-        self.model = model
-        self.protocol = protocol             
-
-        self.vhold = vhold#     -88.0145         
-                
+        self.model = copy.copy(model)
+        self.protocol = copy.copy(protocol)
+        self.max_step = max_step
+        self.abs_tol = abs_tol
+        self.rel_tol = rel_tol                
         # basename = os.path.basename(model_path)        
-        # self.name = os.path.splitext(basename)[0]                
-        
+        # self.name = os.path.splitext(basename)[0]                        
         # 1. Create pre-pacing protocol
-        p = myokit.pacing.constant(self.vhold)
-        self.pre_simulation = myokit.Simulation(self.model, p)
-        self.pre_init_state = self.pre_simulation.state()
-
-
-        self.simulation = myokit.Simulation(self.model, self.protocol)
-        self.simulation.set_tolerance(abs_tol=abs_tol, rel_tol=rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
-        self.simulation.set_max_step_size(max_step)
-        self.init_state = self.simulation.state()
+        self.reset_pre_simulation(vhold)
+        # Create simulation
+        self.reset_simulation_with_new_protocol(protocol)
 
         self.pre_sim_state = False
 
-    def set_simulation(self, model, protocol, max_step=None, abs_tol=1e-06, rel_tol=0.0001, vhold=0):
-        self.model = model
-        self.protocol = protocol    
-        p = myokit.pacing.constant(self.vhold)
-        self.pre_simulation = myokit.Simulation(self.model, p)
+    def reset_pre_simulation(self, vhold):
+        p_const = myokit.pacing.constant(vhold)
+        self.pre_simulation = myokit.Simulation( self.model, p_const )
         self.pre_init_state = self.pre_simulation.state()
 
-        self.simulation = myokit.Simulation(self.model, self.protocol)
-        self.simulation.set_tolerance(abs_tol=abs_tol, rel_tol=rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
-        self.simulation.set_max_step_size(max_step)
+    def reset_simulation_with_new_protocol(self, protocol):
+        model = copy.copy(self.model)        
+        if isinstance(protocol, protocol_lib.VoltageClampProtocol) or isinstance(protocol, mod_protocols.VoltageClampProtocol):
+            model, p = self.transform_to_myokit_protocol(protocol, model)
+        self.simulation = myokit.Simulation(model, p)
+        self.simulation.set_tolerance(abs_tol=self.abs_tol, rel_tol=self.rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
+        self.simulation.set_max_step_size(self.max_step)
         self.init_state = self.simulation.state()
+        # self.simulation.set_protocol( protocol )
+
+
+    def set_initial_values(self, y0):   
+        '''        
+        '''
+        self.simulation.reset()     
+        self.simulation.set_state(y0)
+        self.pre_sim_state = True
 
 
     def set_simulation_params(self, parameters):
@@ -60,7 +90,9 @@ class Simulator:
         '''            
         for key, value in parameters.items():        
             self.simulation.set_constant(key, value)        
-  
+    
+
+
     def pre_simulate(self, pre_step, sim_type=0):   
         '''
         if pre_sim_type==0 : No pre simulation
@@ -83,7 +115,7 @@ class Simulator:
         self.pre_sim_state = True
         
         return self.simulation.state()
-
+        
     def simulate(self, end_time, log_times=None, extra_log=[]):      
         
         if not self.pre_sim_state:
@@ -175,6 +207,31 @@ class Simulator:
         param_li = []
             
         print("=====Dataset%d generation End.===== %d simulation errors occured.====="%(datasetNo, simulation_error_count))       
+
+
+
+    def transform_to_mmt_ramp_script(self, ramp, time_start):            
+        time_end = time_start + ramp.duration
+        m, b = get_tangent_yIntercept((time_start, ramp.voltage_start), (time_end, ramp.voltage_end))        
+        mmt_script = f'engine.time >= {time_start} and engine.time < {time_end}, {b} + {m} * engine.time, '                             
+        return mmt_script
+
+
+    def transform_to_myokit_protocol(self, VC_protocol, model_myokit=None):
+        protocol_myokit = myokit.Protocol()
+        ramp_script = 'piecewise('
+        end_times = 0
+        for step in VC_protocol.steps:            
+            if isinstance(step, protocol_lib.VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep) :
+                protocol_myokit.add_step(step.voltage, step.duration)
+            elif isinstance(step, protocol_lib.VoltageClampRamp)or isinstance(step, mod_protocols.VoltageClampRamp):
+                protocol_myokit.add_step(0.5*(step.voltage_end+step.voltage_start), step.duration)
+                ramp_script += self.transform_to_mmt_ramp_script(step, end_times) 
+            end_times += step.duration
+        ramp_script += 'engine.pace)'
+        # print(ramp_script)
+        model_myokit.get('membrane.V').set_rhs(ramp_script)
+        return model_myokit, protocol_myokit
     
     
 

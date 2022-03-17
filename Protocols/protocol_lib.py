@@ -7,60 +7,10 @@ from math import floor
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import myokit
+
 sys.path.append('../Lib')
 import mod_protocols
 
-
-def get_tangent_yIntercept(p1 : list, p2 : list) :
-    '''
-    Get the tangent and y-intercept of a line(y=ax+b) from points p1 and p2
-    p1 = (x1, y1)
-    p2 = (x2, y2)
-    y=ax+b  <- a: tangent  |  b: y-intercept
-    return a, b
-    '''
-    dx = p2[0] - p1[0]
-    dy = p2[1] - p1[1]
-    a = float('inf')
-    if dx != 0:  a = dy/dx
-    b = -a*p1[0] + p1[1]
-    return a, b
-
-def transform_to_mmt_ramp_script(ramp, time_start):            
-    time_end = time_start + ramp.duration
-    m, b = get_tangent_yIntercept((time_start, ramp.voltage_start), (time_end, ramp.voltage_end))        
-    mmt_script = f'engine.time >= {time_start} and engine.time < {time_end}, {b} + {m} * engine.time, '                             
-    return mmt_script
-
-
-def transform_to_myokit_protocol(VC_protocol, model_myokit):
-    protocol_myokit = myokit.Protocol()
-    ramp_script = 'piecewise('
-    end_times = 0
-    for step in VC_protocol.steps:            
-        if isinstance(step, VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep) :
-            protocol_myokit.add_step(step.voltage, step.duration)
-        elif isinstance(step, VoltageClampRamp)or isinstance(step, mod_protocols.VoltageClampRamp):
-            protocol_myokit.add_step(0.5*(step.voltage_end+step.voltage_start), step.duration)
-            ramp_script += transform_to_mmt_ramp_script(step, end_times) 
-        end_times += step.duration
-    ramp_script += 'engine.pace)'
-    # print(ramp_script)
-    model_myokit.get('membrane.V').set_rhs(ramp_script)
-    return model_myokit, protocol_myokit
-    
-def transform_to_myokit_protocol2(VC_protocol):
-    end_times = 0
-    protocol_myokit = myokit.Protocol()
-    for step in VC_protocol.steps:            
-        if isinstance(step, VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep) :
-            protocol_myokit.add_step(step.voltage, step.duration)
-        elif isinstance(step, VoltageClampRamp)or isinstance(step, mod_protocols.VoltageClampRamp):
-            # protocol_myokit.add_step( (step.voltage_start, step.voltage_end), step.duration)
-            protocol_myokit.schedule( (step.voltage_start, step.voltage_end), end_times, step.duration)
-        end_times += step.duration
-    return protocol_myokit
 
 
 def mutate(bounds, value, normal_denom=20):
