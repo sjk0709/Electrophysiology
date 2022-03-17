@@ -50,7 +50,8 @@ class Simulator:
         self.protocol = copy.copy(protocol)
         self.max_step = max_step
         self.abs_tol = abs_tol
-        self.rel_tol = rel_tol                
+        self.rel_tol = rel_tol               
+        self.output_name_li = []
         # basename = os.path.basename(model_path)        
         # self.name = os.path.splitext(basename)[0]                        
         # 1. Create pre-pacing protocol
@@ -67,9 +68,10 @@ class Simulator:
 
     def reset_simulation_with_new_protocol(self, protocol):
         model = copy.copy(self.model)        
+        self.protocol = copy.copy(protocol)
         if isinstance(protocol, protocol_lib.VoltageClampProtocol) or isinstance(protocol, mod_protocols.VoltageClampProtocol):
-            model, p = self.transform_to_myokit_protocol(protocol, model)
-        self.simulation = myokit.Simulation(model, p)
+            model, protocol = self.transform_to_myokit_protocol(protocol, model)
+        self.simulation = myokit.Simulation(model, protocol)
         self.simulation.set_tolerance(abs_tol=self.abs_tol, rel_tol=self.rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
         self.simulation.set_max_step_size(self.max_step)
         self.init_state = self.simulation.state()
@@ -124,16 +126,26 @@ class Simulator:
         
         # Run simulation
         try:
-            result = self.simulation.run(end_time,
+            d = self.simulation.run(end_time,
                                          log_times = log_times,
                                          log = ['engine.time', 'membrane.V'] + extra_log,
                                         ).npview()
         except myokit.SimulationError:
             return float('inf')
 
+        if extra_log:
+            if not self.output_name_li:
+                self.output_name_li = extra_log
+            self.current_response_info = mod_trace.CurrentResponseInfo()
+            for i in range(len(d['engine.time'])):     
+                current_timestep = []
+                for name1, name2 in zip(self.output_name_li, extra_log):
+                    current_timestep.append(mod_trace.Current(name=name1, value=d[name2][i]))
+                self.current_response_info.currents.append(current_timestep)
+            
         self.pre_sim_state = False
             
-        return result
+        return d
 
 
     def gen_dataset(self, gen_params, datasetNo=1):

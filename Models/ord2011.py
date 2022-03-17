@@ -1062,7 +1062,9 @@ class ORD2011():
 
     def set_result(self, t, y, log=None):
         self.times =  t
-        self.V = y[0]    
+        self.V = y[0]            
+        self.current_response_info = mod_trace.CurrentResponseInfo()
+        list(map(self.differential_eq, t, y.transpose()))
                          
     def differential_eq(self, t, y):    
         V, Nai, Na_ss, Ki, K_ss, Cai, cass, Ca_nsr, Ca_jsr,\

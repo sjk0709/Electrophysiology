@@ -67,23 +67,13 @@ def get_model_response_JK( model, protocol, prestep=None):
     solution = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]] , max_step=0.5, atol=1e-08, rtol=1e-10) 
     
     command_voltages = [protocol.get_voltage_at_time(t) for t in solution.t]
-
-    # print("dd11",len(model.current_response_info.currents))
-    
-    simulator.model.current_response_info = trace.CurrentResponseInfo()
-    if len(solution.y) < 200:
-        list(map(simulator.model.differential_eq, solution.t, solution.y.transpose()))
-    else:
-        list(map(simulator.model.differential_eq, solution.t, solution.y))               
-    
-    # print("dd22",len(model.current_response_info.currents))
     
     tr = trace.Trace(protocol,
                      cell_params=None,
                      t=solution.t,
                      y=command_voltages,  # simulator.model.V,
                      command_voltages=command_voltages,
-                     current_response_info=model.current_response_info,
+                     current_response_info=simulator.model.current_response_info,
                      default_unit=None)
     
     return tr
@@ -96,6 +86,7 @@ def get_model_response_with_myokit( simulator, protocol, prestep=None):
     # simulator.name = 'ORD2017'    
     simulator.reset_simulation_with_new_protocol( protocol )
     simulator.simulation.set_constant('cell.mode', 1)  
+    simulator.output_name_li = ['I_Na', 'I_NaL', 'I_to', 'I_CaL', 'I_Kr', 'I_Ks', 'I_K1' ]
     
     if prestep == None:
         print("There is no pre-step simulation.")
@@ -116,29 +107,13 @@ def get_model_response_with_myokit( simulator, protocol, prestep=None):
         simulator.pre_simulate(pre_step=prestep, sim_type=1)
     
     d = simulator.simulate(protocol.get_voltage_change_endpoints()[-1], log_times=None, extra_log=['ina.INa', 'inal.INaL', 'ito.Ito', 'ical.ICaL', 'ikr.IKr', 'iks.IKs', 'ik1.IK1'])
-
-    current_response_info = mod_trace.CurrentResponseInfo(protocol)
     times = d['engine.time']    
-    for i in range(len(times)):    
-        current_timestep = [                
-            mod_trace.Current(name='I_Na', value=d['ina.INa'][i]),
-            mod_trace.Current(name='I_NaL', value=d['inal.INaL'][i]),                
-            mod_trace.Current(name='I_to', value=d['ito.Ito'][i]),
-            mod_trace.Current(name='I_CaL', value=d['ical.ICaL'][i]),
-            mod_trace.Current(name='I_Kr', value=d['ikr.IKr'][i]),
-            mod_trace.Current(name='I_Ks', value=d['iks.IKs'][i]),
-            mod_trace.Current(name='I_K1', value=d['ik1.IK1'][i]),
-        ]
-        current_response_info.currents.append(current_timestep)
-
-    command_voltages = [protocol.get_voltage_at_time(t) for t in times]
-    
+    command_voltages = [protocol.get_voltage_at_time(t) for t in times]    
     tr = trace.Trace(protocol,
                      cell_params=None,
                      t=times,
                      y=command_voltages,  # simulator.model.V,
                      command_voltages=command_voltages,
-                     current_response_info=current_response_info,
-                     default_unit=None)
-    
+                     current_response_info=simulator.current_response_info,
+                     default_unit=None)    
     return tr
