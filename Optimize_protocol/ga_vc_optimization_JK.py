@@ -33,10 +33,10 @@ def run_ga(ga_params, toolbox):
     
     start_time = time.time()
     fitnesses = toolbox.map(toolbox.evaluate, eval_input)   
-
+    
     for ind, fit in zip(population, fitnesses):             
         ind.fitness.values = [fit]
-    print("--- %s seconds ---"%(time.time()-start_time))
+    print("JK--- %s seconds ---"%(time.time()-start_time))
         
     initial_population = []
     for i in range(len(population)):
@@ -222,7 +222,7 @@ def start_ga(vco_config):
     toolbox.register('mutate', _mutate)
 
     
-    p = multiprocessing.Pool(processes=72)
+    p = multiprocessing.Pool(processes=4)
     toolbox.register("map", p.map)
     #toolbox.register("map", map)
 

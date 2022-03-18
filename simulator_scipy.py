@@ -12,7 +12,9 @@ from scipy.integrate import ode, solve_ivp, odeint
 from scipy.optimize import curve_fit, least_squares
 
 sys.path.append('./Protocols')
+sys.path.append('./Lib')
 import protocol_lib
+import mod_trace
 
 class Simulator:
     """
@@ -68,7 +70,11 @@ class Simulator:
         self.solution = solve_ivp(self.model.diff_eq_solve_ivp, t_span, y0=self.model.y0, t_eval=t_eval,
                                 dense_output=False, 
                                 method=method, # RK45 | LSODA | DOP853 | Radau | BDF | RK23
-                                max_step=max_step, atol=atol, rtol=rtol )            
+                                max_step=max_step, atol=atol, rtol=rtol )    
+        
+        self.model.current_response_info = mod_trace.CurrentResponseInfo()
+        list(map(self.model.differential_eq, self.solution.t, self.solution.y.transpose()))        
+        
         self.model.set_result(self.solution.t, self.solution.y, log)
         return self.solution
 

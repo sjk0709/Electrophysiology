@@ -63,9 +63,10 @@ def get_model_response_JK( model, protocol, prestep=None):
         simulator.model.y0 = y0        
     else:        
         simulator.pre_simulate( pre_step=prestep, protocol='constant')
-          
+    
     solution = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]] , max_step=1.0, atol=1e-06, rtol=1e-6)     
     command_voltages = [protocol.get_voltage_at_time(t) for t in solution.t]    
+
     tr = trace.Trace(protocol,
                      cell_params=None,
                      t=solution.t,
@@ -73,15 +74,16 @@ def get_model_response_JK( model, protocol, prestep=None):
                      command_voltages=command_voltages,
                      current_response_info=simulator.model.current_response_info,
                      default_unit=None)        
+    # print(solution)
     return tr
 
 
 def get_model_response_with_myokit( simulator, protocol, prestep=None):    
     
-    # m_myokit, p, s = myokit.load( "../mmt-model-files/ohara-cipa-v1-2017_VC.mmt" )                              
-    # simulator = simulator_myokit.Simulator(m_myokit, self.protocol, max_step=1.0, abs_tol=1e-8, rel_tol=1e-8, vhold=-80) # 1e-12, 1e-14 # 1e-08, 1e-10  # max_step=1, atol=1E-2, rtol=1E-4 # defalt: abs_tol=1e-06, rel_tol=0.0001
-    # simulator.name = 'ORD2017'    
-    simulator.reset_simulation_with_new_protocol( protocol )
+    model, p, s = myokit.load( "../mmt-model-files/ohara-cipa-v1-2017_VC.mmt" )    
+                      
+    simulator = simulator_myokit.Simulator(model, protocol, max_step=1.0, abs_tol=1e-8, rel_tol=1e-8, vhold=-80) # 1e-12, 1e-14 # 1e-08, 1e-10  # max_step=1, atol=1E-2, rtol=1E-4 # defalt: abs_tol=1e-06, rel_tol=0.0001    
+    # simulator.reset_simulation_with_new_protocol( protocol )
     simulator.simulation.set_constant('cell.mode', 1)  
     
     if prestep == None:
@@ -111,5 +113,5 @@ def get_model_response_with_myokit( simulator, protocol, prestep=None):
                      y=command_voltages,  # simulator.model.V,
                      command_voltages=command_voltages,
                      current_response_info=simulator.current_response_info,
-                     default_unit=None)        
+                     default_unit=None)         
     return tr
