@@ -468,16 +468,14 @@ class VCOptimizationIndividual(Individual):
         elif config.model_name == 'BR1977':              
             i_trace = model_response.get_model_response_JK( BR1977(self.protocol), self.protocol, prestep=prestep )
             scale = 1            
-        elif config.model_name == 'ORD2011':                           
+        elif config.model_name == 'ORD2011':                                       
             i_trace = model_response.get_model_response_JK( ORD2011(self.protocol), self.protocol, prestep=prestep )
-            scale = 1            
-        elif config.model_name == 'ORD2017':                                  
-            m_myokit, p, s = myokit.load( config.mmt_file )                                          
-            sim_myokit = simulator_myokit.Simulator(m_myokit, self.protocol, max_step=1.0, abs_tol=1e-8, rel_tol=1e-8, vhold=-80) # 1e-12, 1e-14 # 1e-08, 1e-10  # max_step=1, atol=1E-2, rtol=1E-4 # defalt: abs_tol=1e-06, rel_tol=0.0001            
-            sim_myokit.name = 'ORD2017'            
-            i_trace = model_response.get_model_response_with_myokit( sim_myokit, self.protocol, prestep=4000 )            
-            scale = 1
-            
+            scale = 1                        
+        elif config.model_name == 'OHara2017':                                  
+            # m_myokit, p, s = myokit.load( config.myokit_model )                                          
+            # sim_myokit = simulator_myokit.Simulator(m_myokit, self.protocol, max_step=1.0, abs_tol=1e-8, rel_tol=1e-8, vhold=-80) # 1e-12, 1e-14 # 1e-08, 1e-10  # max_step=1, atol=1E-2, rtol=1E-4 # defalt: abs_tol=1e-06, rel_tol=0.0001                                                                 
+            i_trace = model_response.get_model_response_with_myokit( config.sim_myokit, self.protocol, prestep=prestep )            
+            scale = 1                        
         else:
             i_trace = get_model_response( kernik.KernikModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)            
             scale = 1
@@ -487,7 +485,7 @@ class VCOptimizationIndividual(Individual):
                 time=i_trace.t,
                 window=config.window/scale,
                 step_size=config.step_size/scale)
-
+        
         return max_contributions
 
 

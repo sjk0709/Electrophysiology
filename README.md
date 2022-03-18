@@ -11,7 +11,11 @@
 * model file : kylie2017IKr.py
 * paper : https://www.sciencedirect.com/science/article/pii/S0006349519305971
 * reference code : https://github.com/CardiacModelling/hERGRapidCharacterisation
-
+#### O'Hara-Rudy dynamic (ORd) model 2011
+* model file : ord2011.py
+* O'Hara et al. (2011) Simulation of the Undiseased Human Cardiac Ventricular Action Potential: Model Formulation and Experimental Validation. PLoS Computational Biology  doi: 10.1371/journal.pcbi.1002061
+#### O'Hara 2017 CiPA-V1
+* model file : 
 ## Protocols
 * The code related to the protocol referenced Christini-Lab's codes(https://github.com/Christini-Lab)
 

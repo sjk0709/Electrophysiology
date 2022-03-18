@@ -114,7 +114,7 @@ class VoltageOptimizationConfig(GeneticAlgorithmConfig):
                  step_types = ["step", "ramp", "sinusoid"],
                  with_artefact=False,
                  model_name='Kernik',
-                 mmt_file=None):
+                 sim_myokit=None):
         super().__init__(
             population_size=population_size,
             max_generations=max_generations,
@@ -132,4 +132,4 @@ class VoltageOptimizationConfig(GeneticAlgorithmConfig):
         self.step_types = step_types
         self.with_artefact = with_artefact
         self.model_name = model_name
-        self.mmt_file = mmt_file
+        self.sim_myokit = sim_myokit
