@@ -50,8 +50,7 @@ class Simulator:
         self.protocol = copy.copy(protocol)
         self.max_step = max_step
         self.abs_tol = abs_tol
-        self.rel_tol = rel_tol               
-        self.output_name_li = []
+        self.rel_tol = rel_tol                       
         # basename = os.path.basename(model_path)        
         # self.name = os.path.splitext(basename)[0]                        
         # 1. Create pre-pacing protocol
@@ -133,14 +132,12 @@ class Simulator:
         except myokit.SimulationError:
             return float('inf')
 
-        if extra_log:
-            if not self.output_name_li:
-                self.output_name_li = extra_log
+        if extra_log:            
             self.current_response_info = mod_trace.CurrentResponseInfo()
             for i in range(len(d['engine.time'])):     
                 current_timestep = []
-                for name1, name2 in zip(self.output_name_li, extra_log):
-                    current_timestep.append(mod_trace.Current(name=name1, value=d[name2][i]))
+                for name in extra_log:
+                    current_timestep.append(mod_trace.Current(name=name.split('.')[1], value=d[name][i]))
                 self.current_response_info.currents.append(current_timestep)
             
         self.pre_sim_state = False
