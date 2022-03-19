@@ -157,9 +157,9 @@ class VoltageClampProtocol():
         step_index = bisect.bisect_left( self.get_voltage_change_endpoints(), time )
         current_step = self.steps[step_index]
         time_into_step = time - self.get_voltage_change_startpoints()[step_index]            
-        if isinstance(current_step, VoltageClampStep):
+        if isinstance(current_step, VoltageClampStep) or isinstance(current_step, mod_protocols.VoltageClampStep):
             return current_step.voltage
-        elif isinstance(current_step, VoltageClampRamp):
+        elif isinstance(current_step, VoltageClampRamp) or isinstance(current_step, mod_protocols.VoltageClampRamp):
             return current_step.get_voltage(time_into_step)
         else:
             return current_step.get_voltage(time_into_step)
@@ -221,7 +221,7 @@ class VoltageClampProtocol():
 
         step_number = 0
         for step in self.steps:
-            if isinstance(step, VoltageClampStep):
+            if isinstance(step, VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep):
                 formatted_step = f'<step stepDuration="{step.duration}" holdingLevel1="{step.voltage}" stepNumber="{step_number}" stepType="0"/>\n'
             else:
                 formatted_step = f'<step holdingLevel2="{step.voltage_end}" stepDuration="{step.duration}" holdingLevel1="{step.voltage_start}" stepNumber="{step_number}" stepType="1"/>\n'

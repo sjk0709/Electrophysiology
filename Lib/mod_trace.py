@@ -457,17 +457,13 @@ class Trace:
             idx = current_contributions['Time Mid'].sub(t).abs().idxmin()
             c.append(current_contributions[current].loc[idx])
 
-
+        # print("contribution of %s :"%(current), c)
         if axs is None:
             fig, (ax_1, ax_2) = plt.subplots(2, 1, num=1, sharex=True, figsize=(12, 8))
         else:
             ax_1, ax_2 = axs
 
-        ax_1.plot(
-            [i for i in self.t],
-            [i for i in self.command_voltages],
-            'k',
-            label='Voltage')
+        ax_1.plot(self.t, self.command_voltages, 'k', label='Voltage')                     
         ax_1.set_ylabel(r'$V_{command}$ (mV)', fontsize=18)
 
         if voltage_bounds is not None:

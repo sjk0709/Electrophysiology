@@ -1115,7 +1115,7 @@ class ORD2011():
         d_calcium_li = self.calcium.diff_eq(Cai, cass, Ca_nsr, Ca_jsr, 
                                             IpCa, ICab, INaCa, ICaL, INaCa_ss, 
                                             self.ryr, self.serca, self.diff)   
-                   
+       
         # Membrane potential     
         I_ion = INa + INaL + INaCa + INaK + INab + ICaNa + INaCa_ss + IpCa + ICab + ICaL + Ito + IKr + IKs + IK1 + IKb + ICaK
         d_V_li = self.membrane.d_V( I_ion + self.stimulus.I )
@@ -1126,9 +1126,18 @@ class ORD2011():
                 mod_trace.Current(name='I_NaL', value=INaL),                
                 mod_trace.Current(name='I_to', value=Ito),
                 mod_trace.Current(name='I_CaL', value=ICaL),
+                mod_trace.Current(name='I_CaNa', value=ICaNa),
+                mod_trace.Current(name='I_CaK', value=ICaK),
                 mod_trace.Current(name='I_Kr', value=IKr),
                 mod_trace.Current(name='I_Ks', value=IKs),
                 mod_trace.Current(name='I_K1', value=IK1),
+                mod_trace.Current(name='I_NaCa', value=INaCa),
+                mod_trace.Current(name='I_NaCa_ss', value=INaCa_ss),
+                mod_trace.Current(name='I_NaK', value=INaK),
+                mod_trace.Current(name='I_Kb', value=IKb),
+                mod_trace.Current(name='I_Nab', value=INab),
+                mod_trace.Current(name='I_Cab', value=ICab),
+                mod_trace.Current(name='I_pCa', value=IpCa),                
             ]
             self.current_response_info.currents.append(current_timestep)
             
