@@ -61,7 +61,7 @@ class Cell():
         Cell geometry
         Page 6        
         '''                        
-        self.mode = 0  # The type of cell. Endo=0, Epi=1, Mid=2
+        self.mode = 1  # The type of cell. Endo=0, Epi=1, Mid=2
         self.L = 0.01  # [cm] Cell length
         self.rad = 0.0011  # [cm] cell radius
         self.vcell = 1000 * 3.14 * self.rad * self.rad * self.L # [uL] Cell volume
@@ -1124,7 +1124,7 @@ class ORD2011():
             current_timestep = [                
                 mod_trace.Current(name='I_Na', value=INa),
                 mod_trace.Current(name='I_NaL', value=INaL),                
-                mod_trace.Current(name='I_to', value=Ito),
+                mod_trace.Current(name='I_To', value=Ito),
                 mod_trace.Current(name='I_CaL', value=ICaL),
                 mod_trace.Current(name='I_CaNa', value=ICaNa),
                 mod_trace.Current(name='I_CaK', value=ICaK),

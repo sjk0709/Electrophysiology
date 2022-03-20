@@ -38,14 +38,15 @@ import simulator_scipy
 import simulator_myokit
 import myokit
 from Models.br1977 import BR1977
-from Models.ord2011JK_v1 import ORD2011
+from Models.ord2011 import ORD2011
 import mod_trace
 
 
 def get_model_response_JK( model, protocol, prestep=None):    
     
+    model.cell.mode = 1
     simulator = simulator_scipy.Simulator(model)     
-    
+        
     if prestep == None:
         print("There is no pre-step simulation.")
     elif prestep == 5000:        
@@ -62,9 +63,8 @@ def get_model_response_JK( model, protocol, prestep=None):
                 2.45432407e-04]
         simulator.model.y0 = y0        
     else:        
-        simulator.pre_simulate( pre_step=prestep, protocol='constant')
-    
-    solution = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]] , max_step=1.0, atol=1e-06, rtol=1e-6)     
+        simulator.pre_simulate( pre_step=prestep, protocol='constant')    
+    solution = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]], method='BDF', max_step=1, atol=1e-06, rtol=1e-6)     
     command_voltages = [protocol.get_voltage_at_time(t) for t in solution.t]    
 
     tr = trace.Trace(protocol,
