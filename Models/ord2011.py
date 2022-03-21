@@ -958,8 +958,7 @@ class Calcium():
         cm = 1.0
         cmdnmax_b = 0.05
         cmdnmax = cmdnmax_b  
-        if self.cell.mode == 1:
-            cmdnmax = 1.3*cmdnmax_b        
+        if self.cell.mode == 1: cmdnmax = 1.3*cmdnmax_b        
         kmcmdn  = 0.00238
         trpnmax = 0.07
         kmtrpn  = 0.0005

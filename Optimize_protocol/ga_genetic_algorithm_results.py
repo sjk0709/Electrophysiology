@@ -38,7 +38,7 @@ import simulator_myokit
 import model_response
 # Models
 from Models.br1977 import BR1977
-from Models.ord2011JK_v1 import ORD2011
+from Models.ord2011 import ORD2011
 #############################################
 import myokit
 

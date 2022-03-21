@@ -15,7 +15,7 @@ sys.path.append('../Protocols')
 import protocol_lib
 sys.path.append('../Models')
 import br1977 
-import ord2011JK_v1
+import ord2011
 sys.path.append('./Lib')
 from mod_kernik import KernikModel
 
@@ -103,11 +103,9 @@ def _evaluate(eval_input):
     # print(individual)  # type : deap.creator
     
     try:
-        max_contributions = individual[0].evaluate(
-                config=VCGA_PARAMS.config, prestep=5000)
+        max_contributions = individual[0].evaluate(config=VCGA_PARAMS.config, prestep=5000)
         # print(max_contributions)
-        fitness = max_contributions.loc[max_contributions['Current'] == current][
-                'Contribution'].values[0]
+        fitness = max_contributions.loc[max_contributions['Current'] == current]['Contribution'].values[0]
     except:
         return 0.0
 
@@ -186,7 +184,7 @@ class VCGAParams():
         elif model_name == 'BR1977': 
             self.cell_model = br1977.BR1977
         elif model_name == 'ORD2011':            
-            self.cell_model = ord2011JK_v1.ORD2011
+            self.cell_model = ord2011.ORD2011
         elif model_name == 'OHara2017':            
             self.cell_model = None
         else:
@@ -215,14 +213,13 @@ def start_ga(vco_config):
                      list,
                      toolbox.individual)
     toolbox.register('evaluate', _evaluate)
-    toolbox.register('select',
-                     tools.selTournament,
+    toolbox.register('select', tools.selTournament,
                      tournsize=VCGA_PARAMS.config.tournament_size)
     toolbox.register('mate', _mate)
     toolbox.register('mutate', _mutate)
 
     
-    p = multiprocessing.Pool(processes=4)
+    p = multiprocessing.Pool(processes=72)
     toolbox.register("map", p.map)
     #toolbox.register("map", map)
 
