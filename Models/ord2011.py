@@ -1020,12 +1020,8 @@ class ORD2011():
         
         self.protocol = protocol
         
-        self.membrane = Membrane()
-        if not isinstance(self.protocol, protocol_lib.PacingProtocol)  :  
-            self.membrane.V = self.protocol.get_voltage_at_time(0)
-            self.membrane.y0 = [self.membrane.V ]
-        self.stimulus = Stimulus()      
-
+        self.membrane = Membrane()        
+        self.stimulus = Stimulus()
         self.nernst = Nernst(self.phys, self.cell, self.extra)
         self.camk = CaMK()  
         

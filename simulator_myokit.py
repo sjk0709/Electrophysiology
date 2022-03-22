@@ -237,9 +237,9 @@ class Simulator:
                 protocol_myokit.add_step(0.5*(step.voltage_end+step.voltage_start), step.duration)
                 ramp_script += self.transform_to_mmt_ramp_script(step, end_times) 
             end_times += step.duration
-        ramp_script += 'engine.pace)'
-        # print(ramp_script)
-        model_myokit.get('membrane.V').set_rhs(ramp_script)
+        ramp_script += 'engine.pace)'        
+        if len(ramp_script)>22:
+            model_myokit.get('membrane.V').set_rhs(ramp_script)
         return model_myokit, protocol_myokit
     
     

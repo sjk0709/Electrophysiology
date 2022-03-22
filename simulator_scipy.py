@@ -37,14 +37,14 @@ class Simulator:
     #     self.times = times
     #     print("Times has been set.")
 
-    def pre_simulate(self, pre_step=5000, protocol=None, 
+    def pre_simulate(self, protocol='constant', pre_step=5000, v0=-80, 
                            method='BDF', max_step=np.inf, atol=1E-6, rtol=1E-3, t_eval=None):
         '''
         ''' 
         protocol_temp = copy.copy(self.model.protocol)
         self.model.protocol = protocol           
         if protocol == 'constant':            
-            self.model.protocol = protocol_lib.VoltageClampProtocol( [protocol_lib.VoltageClampStep(voltage=self.model.y0[0], duration=pre_step)] )
+            self.model.protocol = protocol_lib.VoltageClampProtocol( [protocol_lib.VoltageClampStep(voltage=v0, duration=pre_step)] )
         elif protocol =='pacing':
             self.model.protocol = protocol_lib.PacingProtocol(level=-1, start=-10, length=-1, period=-1, multiplier=0, default_time_unit='ms')
         elif protocol==None:            

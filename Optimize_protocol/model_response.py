@@ -44,32 +44,40 @@ import mod_trace
 
 def get_model_response_JK( model, protocol, prestep=None):    
     
-    model.cell.mode = 1
+    
     simulator = simulator_scipy.Simulator(model)     
-        
-    if prestep == None:
-        print("There is no pre-step simulation.")
-    elif prestep == 5000:        
-        y0 = [-8.00000003e+01,  6.94549002e+00,  6.94553614e+00,  1.44766826e+02,
-                1.44766919e+02,  5.46283800e-05,  5.38550879e-05,  1.25377970e+00,
-                1.25388392e+00,  1.63694063e-02,  3.83078124e-01,  3.83078124e-01,
-                3.83078124e-01,  1.83137288e-01,  3.83078124e-01,  8.60298196e-04,
-                2.65750243e-01,  1.36775744e-01,  1.71654793e-03,  9.98192733e-01,
-                9.98192733e-01,  8.74934836e-04,  9.98192733e-01,  9.98192733e-01,
-                1.55207580e-08,  9.99999920e-01,  9.99999921e-01,  9.99999920e-01,
-                9.99999920e-01,  9.99999920e-01,  4.72523502e-04,  9.99999920e-01,
-                9.99999920e-01,  2.60425715e-05,  2.54957029e-05,  4.27866636e-04,
-                4.72094402e-04,  9.98307893e-01,  6.06464770e-07,  7.58083578e-07,
-                2.45432407e-04]
-        simulator.model.y0 = y0        
-    else:        
-        simulator.pre_simulate( pre_step=prestep, protocol='constant')    
-    solution = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]], method='BDF', max_step=1, atol=1e-06, rtol=1e-6)     
-    command_voltages = [protocol.get_voltage_at_time(t) for t in solution.t]    
+            
+    if isinstance(model, ORD2011):
+        simulator.model.cell.mode = 1   
+        if prestep == None:
+            print("There is no pre-step simulation.")
+        elif prestep == 5000:        
+            y0 = [-8.00000003e+01,  6.94549002e+00,  6.94553614e+00,  1.44766826e+02,
+                    1.44766919e+02,  5.46283800e-05,  5.38550879e-05,  1.25377970e+00,
+                    1.25388392e+00,  1.63694063e-02,  3.83078124e-01,  3.83078124e-01,
+                    3.83078124e-01,  1.83137288e-01,  3.83078124e-01,  8.60298196e-04,
+                    2.65750243e-01,  1.36775744e-01,  1.71654793e-03,  9.98192733e-01,
+                    9.98192733e-01,  8.74934836e-04,  9.98192733e-01,  9.98192733e-01,
+                    1.55207580e-08,  9.99999920e-01,  9.99999921e-01,  9.99999920e-01,
+                    9.99999920e-01,  9.99999920e-01,  4.72523502e-04,  9.99999920e-01,
+                    9.99999920e-01,  2.60425715e-05,  2.54957029e-05,  4.27866636e-04,
+                    4.72094402e-04,  9.98307893e-01,  6.06464770e-07,  7.58083578e-07,
+                    2.45432407e-04]
+            simulator.model.y0 = y0        
+        else:        
+            simulator.pre_simulate( protocol='constant', pre_step=prestep, v0=-80)    
+    else :
+        if prestep == None:
+            print("There is no pre-step simulation.")            
+        else:        
+            simulator.pre_simulate( protocol='constant', pre_step=prestep, v0=-80)  
+
+    sol = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]], method='BDF', max_step=1, atol=1e-06, rtol=1e-6)     
+    command_voltages = [protocol.get_voltage_at_time(t) for t in sol.t]    
 
     tr = trace.Trace(protocol,
                      cell_params=None,
-                     t=solution.t,
+                     t=sol.t,
                      y=command_voltages,  # simulator.model.V,
                      command_voltages=command_voltages,
                      current_response_info=simulator.model.current_response_info,
