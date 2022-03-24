@@ -55,6 +55,8 @@ class Phys():
         self.zca = 2
         self.zk = 1
 
+        self.eps = np.finfo(float).eps
+
 class Cell():
     def __init__(self, phys):
         '''
@@ -344,7 +346,7 @@ class ICaL():
                       
     def diff_eq(self, V, 
                 d, ff, fs, fcaf, fcas, jca, nca, ffp, fcafp, 
-                cass, Na_ss, K_ss,
+                cass, nass, kss,
                 camk, nernst):
         
         vfrt = V * self.phys.FRT
@@ -395,10 +397,34 @@ class ICaL():
         anca = 1.0 / (k2n / km2n + (1 + Kmn / cass)**4.0)  # Fraction of channels in Ca-depdent inactivation mode
         d_nca = anca * k2n - nca*km2n   # Fraction of channels in Ca-depdent inactivation mode
         
-        # Total currents through ICaL channel
-        PhiCaL  = 4 * vffrt *(       cass  * exp(2 * vfrt) - 0.341 * self.extra.Cao) / (exp(2 * vfrt) - 1)
-        PhiCaNa = 1 * vffrt *(0.75 * Na_ss   * exp(1 * vfrt) - 0.75  * self.extra.Nao) / (exp(1 * vfrt) - 1)
-        PhiCaK  = 1 * vffrt *(0.75 * K_ss * exp(1 * vfrt) - 0.75  * self.extra.Ko ) / (exp(1 * vfrt) - 1)
+        # Total currents through ICaL channel        
+        v0 = 0
+        B_1 = 2*self.phys.FRT
+        A_1 = 4 * self.phys.FFRT * ( cass * exp(2 * vfrt) - 0.341 * self.extra.Cao) / B_1
+        U_1 = B_1 * ( V - v0 )
+        PhiCaL = float('inf')
+        if -1e-7 <= U_1 and U_1 <= 1e-7:
+            PhiCaL = A_1 * (1.0-0.5*U_1)
+        else :
+            PhiCaL = (A_1 * U_1) / (exp(U_1)-1)
+        
+        B_2 = self.phys.FRT
+        A_2 = 0.75 * self.phys.FFRT * ( nass * exp(vfrt) - self.extra.Nao) / B_2
+        U_2 = B_2 * ( V - v0 )
+        PhiCaNa = float('inf')
+        if -1e-7 <= U_2 and U_2 <= 1e-7:
+            PhiCaNa = A_2 * (1.0-0.5*U_2)
+        else :
+            PhiCaNa = (A_2 * U_2) / (exp(U_2)-1)
+        
+        B_3 = self.phys.FRT
+        A_3 = 0.75 * self.phys.FFRT * ( kss * exp(vfrt) - self.extra.Ko) / B_3
+        U_3 = B_3 * ( V - v0 )
+        PhiCaK = float('inf')
+        if -1e-7 <= U_3 and U_3 <= 1e-7:
+            PhiCaK = A_3 * (1.0-0.5*U_3)
+        else :
+            PhiCaK = (A_3 * U_3) / (exp(U_3)-1)
         
         PCa_b = 0.0001
         PCa = PCa_b
@@ -410,13 +436,11 @@ class ICaL():
         PCaK   = 3.574e-4 * PCa
         PCaNap = 0.00125  * PCap
         PCaKp  = 3.574e-4 * PCap
-        flCaLp = camk.f
         g  = d * (f  * (1.0 - nca) + jca * fca  * nca)   # Conductivity of non-phosphorylated ICaL channels
-        gp = d * (fp * (1.0 - nca) + jca * fcap * nca)   # Conductivity of phosphorylated ICaL channels
-        
-        ICaL   = (1.0 - flCaLp) * PCa   * PhiCaL  * g + flCaLp * PCap   * PhiCaL  * gp  # L-type Calcium current   in [uA/uF]
-        ICaNa  = (1.0 - flCaLp) * PCaNa * PhiCaNa * g + flCaLp * PCaNap * PhiCaNa * gp   # Sodium current through ICaL channels  in [uA/uF]
-        ICaK   = (1.0 - flCaLp) * PCaK  * PhiCaK  * g + flCaLp * PCaKp  * PhiCaK  * gp   # Potassium current through ICaL channels  in [uA/uF]
+        gp = d * (fp * (1.0 - nca) + jca * fcap * nca)   # Conductivity of phosphorylated ICaL channels        
+        ICaL   = (1.0 - camk.f) * PCa   * PhiCaL  * g + camk.f * PCap   * PhiCaL  * gp  # L-type Calcium current   in [uA/uF]
+        ICaNa  = (1.0 - camk.f) * PCaNa * PhiCaNa * g + camk.f * PCaNap * PhiCaNa * gp   # Sodium current through ICaL channels  in [uA/uF]
+        ICaK   = (1.0 - camk.f) * PCaK  * PhiCaK  * g + camk.f * PCaKp  * PhiCaK  * gp   # Potassium current through ICaL channels  in [uA/uF]
     
         return [d_d, d_ff, d_fs, d_fcaf, d_fcas, d_jca, d_nca, d_ffp, d_fcafp,], ICaL, ICaNa, ICaK
 
@@ -752,18 +776,19 @@ class INab():
         self.cell = cell
         self.extra = extra    
             
-    def calculate(self, V, Nai):
-        
+    def calculate(self, V, Nai):        
         B = self.phys.FRT
         v0 = 0
         PNab = 3.75e-10
         A = PNab * self.phys.FFRT * (Nai * exp(V * self.phys.FRT) - self.extra.Nao) / B            
         U = B * (V - v0)
-        INab = (A*U)/(exp(U)-1.0)
-        # if -1e-7<=U and U<=1e-7: INab = A*(1.0-0.5*U)   # Background Sodium current   in [uA/uF] <- 2017 version
-                    
-        return INab
-    
+        
+        if -1e-7<=U and U<=1e-7: 
+            return A*(1.0-0.5*U)   # Background Sodium current   in [uA/uF] <- 2017 version
+        else:
+            return (A*U)/(exp(U)-1)
+
+        
 class ICab():
     '''
     ICab :: Background Calcium current
@@ -780,10 +805,12 @@ class ICab():
         PCab = 2.5e-8
         A = PCab * 4.0 * self.phys.FFRT * (Cai * exp( 2.0 * V * self.phys.FRT) - 0.341 * self.extra.Cao) / B
         U = B * (V - v0)
-        ICab = (A*U)/(exp(U)-1.0)
-        # if -1e-7<=U and U<=1e-7:  ICab = A*(1.0-0.5*U) # Background Calcium current  in [uA/uF] <- 2017 version
-                            
-        return ICab
+
+        if -1e-7<=U and U<=1e-7:  
+            return A*(1.0-0.5*U) # Background Calcium current  in [uA/uF] <- 2017 version
+        else:
+            return (A*U)/(exp(U)-1)
+            
     
 class IpCa():
     '''
@@ -1085,7 +1112,7 @@ class ORD2011():
         d_IKr_li, IKr = self.ikr.diff_eq(V, xf, xs, self.camk, self.nernst)
         d_IKs_li, IKs = self.iks.diff_eq(V, xs1, xs2, Cai, self.camk, self.nernst) 
         d_IK1_li, IK1 = self.ik1.diff_eq(V, xk1, self.camk, self.nernst) 
-        
+        # print(t, IK1)
         INaCa = self.inaca.calculate(V, Nai, Cai)
         INaCa_ss = self.inacass.calculate(Na_ss, cass, self.inaca)
         INaK = self.inak.calculate(V, Nai, Na_ss, Ki, K_ss)

@@ -10,27 +10,15 @@ import matplotlib.pyplot as plt
 import multiprocessing
 from functools import partial 
 from tqdm import tqdm
-from numba import jit
 # import pickle
 # import bisect
 
-sys.path.append('../')
-sys.path.append('../Lib')
 sys.path.append('../Protocols')
-from pacing_protocol import PacingProtocol
-import mod_trace as trace
+sys.path.append('../Lib')
+import protocol_lib
+import mod_trace
         
-
-'''
-'Endocardial' : 0,
-'Epicardial' : 1,
-'Mid-myocardial' : 2,
-
-
-This version have conductance adjusment values such as GNa_adj, GNaL_adj, Gto_adj
-and does not have cell_mode.
-'''        
-
+        
 class Membrane():
     def __init__(self):        
         self.V = -87.0
@@ -67,13 +55,15 @@ class Phys():
         self.zca = 2
         self.zk = 1
 
+        self.eps = np.finfo(float).eps
+
 class Cell():
     def __init__(self, phys):
         '''
         Cell geometry
         Page 6        
         '''                        
-        self.mode = 0  # The type of cell. Endo=0, Epi=1, Mid=2
+        self.mode = 1  # The type of cell. Endo=0, Epi=1, Mid=2
         self.L = 0.01  # [cm] Cell length
         self.rad = 0.0011  # [cm] cell radius
         self.vcell = 1000 * 3.14 * self.rad * self.rad * self.L # [uL] Cell volume
@@ -163,8 +153,7 @@ class INa():
         self.y0 = [self.m, self.hf, self.hs, self.j, self.hsp, self.jp]
 
         #: Maximum conductance of INa channels
-        self.GNa_max = 75.0         # 2011 : 75
-        self.GNa_adj = 1.0   
+        self.GNa = 75.0        
             
     def diff_eq(self, V, m, hf, hs, j, hsp, jp, camk, nernst):
         '''
@@ -207,8 +196,7 @@ class INa():
         tjp = 1.46 * tj # desc: Time constant for the j-gate of phosphorylated INa channels     in [ms]        
         d_jp = (jss - jp) / tjp # desc: Recovery from inactivation gate for phosphorylated INa channels
         
-        # Current       
-        self.GNa = self.GNa_max * self.GNa_adj         
+        # Current                
         INa = self.GNa * (V - nernst.ENa) * m**3 * ((1.0 - camk.f) * h * j + camk.f * hp * jp) # in [uA/uF]  desc: Fast sodium current
     
         return [d_m, d_hf, d_hs, d_j, d_hsp, d_jp], INa
@@ -217,11 +205,6 @@ class INaL():
     '''
     INaL :: Late component of the Sodium current
     Page 7
-
-    2011 : 
-    self.GNaL_max =  
-    self.GNaL_adj = 1.0   
-        
     '''
     def __init__(self, phys, cell, extra):        
         self.phys = phys
@@ -235,9 +218,7 @@ class INaL():
 
         self.y0 = [self.mL, self.hL, self.hLp]
 
-        #: Maximum conductance           Endo = 0, Epi = 1, Mid = 2
-        self.GNaL_max = 0.0075*0.6   # 'Endocardial' : 0.0075,  'Epicardial' : 0.0075*0.6,   'Mid-myocardial' : 0.0075*1.0,
-        self.GNaL_adj = 1.0   
+        #: Maximum conductance          
             
     def diff_eq(self, V, mL, hL, hLp, camk, nernst, ina):
         mLss = 1.0 / (1.0 + exp(-(V + 42.85) / 5.264)) # desc: Steady state value of m-gate for INaL
@@ -254,9 +235,13 @@ class INaL():
 
         d_hLp = (hLssp - hLp) / thLp  # desc: Inactivation gate for phosphorylated INaL channels
                 
-        # Current        
-        self.GNaL = self.GNaL_max * self.GNaL_adj
-        INaL = self.GNaL * (V - nernst.ENa) * mL * ((1 - camk.f) * hL + camk.f * hLp)
+        # Current
+        GNaL_b = 0.0075
+        GNaL = GNaL_b
+        if self.cell.mode == 1:  
+            GNaL = GNaL_b*0.6  # desc: Adjustment for different cell types            
+        fINaLp = camk.f
+        INaL = GNaL * (V - nernst.ENa) * mL * ((1 - fINaLp) * hL + fINaLp * hLp)
     
         return [d_mL, d_hL, d_hLp], INaL
 
@@ -282,16 +267,14 @@ class Ito():
         self.y0 = [self.a, self.iF, self.iS, self.ap, self.iFp, self.iSp]
 
         #: Maximum conductance
-        self.Gto_max = 0.08   # 'Endocardial' : 0.02,  'Epicardial' : 0.08,   'Mid-myocardial' : 0.08
-        self.Gto_adj = 1.0   
          
             
     def diff_eq(self, V, a, iF, iS, ap, iFp, iSp, camk, nernst):
-        
-        ass = 1.0 / (1.0 + exp(-(V - 14.34) / 14.82))  # desc: Steady-state value for Ito activation
+                
         one = 1.0 / (1.2089 * (1 + exp(-(V - 18.4099) / 29.3814)))
         two = 3.5 / (1 + exp((V + 100) / 29.3814))
         ta = 1.0515 / (one + two)  # desc: Time constant for Ito activation  in [ms]        
+        ass = 1.0 / (1.0 + exp(-(V - 14.34) / 14.82))  # desc: Steady-state value for Ito activation
         d_a = (ass - a) / ta   # desc: Ito activation gate
         
         iss = 1.0 / (1.0 + exp((V + 43.94) / 5.711))   # desc: Steady-state value for Ito inactivation
@@ -319,9 +302,12 @@ class Ito():
         
         ip = AiF * iFp + AiS * iSp  # desc: Inactivation gate for phosphorylated Ito channels
         
-        # Current        
-        self.Gto = self.Gto_max * self.Gto_adj                
-        Ito = self.Gto * (V - nernst.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip) # desc: Transient outward Potassium current
+        # Current
+        Gto_b = 0.02
+        Gto = Gto_b
+        if self.cell.mode==1 :  Gto = Gto_b*4.0
+        elif self.cell.mode==2 :  Gto = Gto_b*4.0                 
+        Ito = Gto * (V - nernst.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip) # desc: Transient outward Potassium current
     
         return [d_a, d_iF, d_iS, d_ap, d_iFp, d_iSp], Ito
     
@@ -357,12 +343,10 @@ class ICaL():
         self.y0 = [self.d, self.ff, self.fs, self.fcaf, self.fcas, self.jca, self.nca, self.ffp, self.fcafp]
 
         #: Maximum conductance
-        self.PCa_max = 1.2*0.0001  # 'Endocardial' : 0.0001  'Epicardial' : 0.0001*1.2,   'Mid-myocardial' : 0.0001*2.5
-        self.PCa_adj = 1.0
-
+                      
     def diff_eq(self, V, 
                 d, ff, fs, fcaf, fcas, jca, nca, ffp, fcafp, 
-                cass, Na_ss, K_ss,
+                cass, nass, kss,
                 camk, nernst):
         
         vfrt = V * self.phys.FRT
@@ -413,42 +397,50 @@ class ICaL():
         anca = 1.0 / (k2n / km2n + (1 + Kmn / cass)**4.0)  # Fraction of channels in Ca-depdent inactivation mode
         d_nca = anca * k2n - nca*km2n   # Fraction of channels in Ca-depdent inactivation mode
         
-        # Total currents through ICaL channel
-        # v0 = 0
-        # B_1 = 2.0 * self.phys.FRT
-        # A_1 = ( 4.0 * self.phys.FFRT * (cass * exp(2 * vfrt) - 0.341 * self.extra.Cao) ) / B_1
-        # U_1 = B_1 * (V-v0)
-        # PhiCaL = (A_1*U_1)/(exp(U_1)-1.0)
-        # if -1e-7<=U_1 and U_1<=1e-7 :  PhiCaL = A_1 * (1.0-0.5*U_1)        
-        # B_2 = self.phys.FRT
-        # A_2 = ( 0.75 * self.phys.FFRT * (Na_ss * exp(vfrt) - self.extra.Nao) ) / B_2
-        # U_2 = B_2 * (V-v0)
-        # PhiCaNa = (A_2*U_2)/(exp(U_2)-1.0)
-        # if (-1e-7<=U_2 and U_2<=1e-7) :  PhiCaNa = A_2 * (1.0-0.5*U_2) 
-        # B_3 = self.phys.FRT
-        # A_3 = ( 0.75 * self.phys.FFRT * (K_ss * exp(vfrt) - self.extra.Ko) ) / B_3
-        # U_3 = B_3 * (V-v0)
-        # PhiCaK = (A_3*U_3)/(exp(U_3)-1.0)
-        # if (-1e-7<=U_3 and U_3<=1e-7) :  PhiCaK = A_3 * (1.0-0.5*U_3)
-
-        PhiCaL  = 4 * vffrt *(       cass  * exp(2 * vfrt) - 0.341 * self.extra.Cao) / (exp(2 * vfrt) - 1)
-        PhiCaNa = 1 * vffrt *(0.75 * Na_ss   * exp(1 * vfrt) - 0.75  * self.extra.Nao) / (exp(1 * vfrt) - 1)
-        PhiCaK  = 1 * vffrt *(0.75 * K_ss * exp(1 * vfrt) - 0.75  * self.extra.Ko ) / (exp(1 * vfrt) - 1)
-                
-        PCa = self.PCa_max * self.PCa_adj
+        # Total currents through ICaL channel        
+        v0 = 0
+        B_1 = 2*self.phys.FRT
+        A_1 = 4 * self.phys.FFRT * ( cass * exp(2 * vfrt) - 0.341 * self.extra.Cao) / B_1
+        U_1 = B_1 * ( V - v0 )
+        PhiCaL = float('inf')
+        if -1e-7 <= U_1 and U_1 <= 1e-7:
+            PhiCaL = A_1 * (1.0-0.5*U_1)
+        else :
+            PhiCaL = (A_1 * U_1) / (exp(U_1)-1)
+        
+        B_2 = self.phys.FRT
+        A_2 = 0.75 * self.phys.FFRT * ( nass * exp(vfrt) - self.extra.Nao) / B_2
+        U_2 = B_2 * ( V - v0 )
+        PhiCaNa = float('inf')
+        if -1e-7 <= U_2 and U_2 <= 1e-7:
+            PhiCaNa = A_2 * (1.0-0.5*U_2)
+        else :
+            PhiCaNa = (A_2 * U_2) / (exp(U_2)-1)
+        
+        B_3 = self.phys.FRT
+        A_3 = 0.75 * self.phys.FFRT * ( kss * exp(vfrt) - self.extra.Ko) / B_3
+        U_3 = B_3 * ( V - v0 )
+        PhiCaK = float('inf')
+        if -1e-7 <= U_3 and U_3 <= 1e-7:
+            PhiCaK = A_3 * (1.0-0.5*U_3)
+        else :
+            PhiCaK = (A_3 * U_3) / (exp(U_3)-1)
+        
+        PCa_b = 0.0001
+        PCa = PCa_b
+        if self.cell.mode==1: PCa = PCa_b*1.2
+        elif self.cell.mode==2: PCa = PCa_b*2.5
                     
         PCap   = 1.1      * PCa
         PCaNa  = 0.00125  * PCa
         PCaK   = 3.574e-4 * PCa
         PCaNap = 0.00125  * PCap
         PCaKp  = 3.574e-4 * PCap
-        flCaLp = camk.f
         g  = d * (f  * (1.0 - nca) + jca * fca  * nca)   # Conductivity of non-phosphorylated ICaL channels
-        gp = d * (fp * (1.0 - nca) + jca * fcap * nca)   # Conductivity of phosphorylated ICaL channels
-        
-        ICaL   = (1.0 - flCaLp) * PCa   * PhiCaL  * g + flCaLp * PCap   * PhiCaL  * gp  # L-type Calcium current   in [uA/uF]
-        ICaNa  = (1.0 - flCaLp) * PCaNa * PhiCaNa * g + flCaLp * PCaNap * PhiCaNa * gp   # Sodium current through ICaL channels  in [uA/uF]
-        ICaK   = (1.0 - flCaLp) * PCaK  * PhiCaK  * g + flCaLp * PCaKp  * PhiCaK  * gp   # Potassium current through ICaL channels  in [uA/uF]
+        gp = d * (fp * (1.0 - nca) + jca * fcap * nca)   # Conductivity of phosphorylated ICaL channels        
+        ICaL   = (1.0 - camk.f) * PCa   * PhiCaL  * g + camk.f * PCap   * PhiCaL  * gp  # L-type Calcium current   in [uA/uF]
+        ICaNa  = (1.0 - camk.f) * PCaNa * PhiCaNa * g + camk.f * PCaNap * PhiCaNa * gp   # Sodium current through ICaL channels  in [uA/uF]
+        ICaK   = (1.0 - camk.f) * PCaK  * PhiCaK  * g + camk.f * PCaKp  * PhiCaK  * gp   # Potassium current through ICaL channels  in [uA/uF]
     
         return [d_d, d_ff, d_fs, d_fcaf, d_fcas, d_jca, d_nca, d_ffp, d_fcafp,], ICaL, ICaNa, ICaK
 
@@ -471,9 +463,8 @@ class IKr():
         self.y0 = [self.xf, self.xs]
 
         #: Maximum conductance
-        self.GKr_max = 0.046*1.3   # 'Endocardial' : 0.046  'Epicardial' : 0.046*1.3,   'Mid-myocardial' : 0.046*0.8
-        self.GKr_adj = 1.0         
-    
+         
+            
     def diff_eq(self, V, xf, xs, camk, nernst):
         
         # Activation
@@ -487,9 +478,12 @@ class IKr():
         x = Axf * xf + Axs * xs   # Activation of IKr channels
         # Inactivation
         r = 1.0 / (1.0 + exp((V + 55.0) / 75.0)) * 1.0 / (1.0 + exp((V - 10.0) / 30.0))  # Inactivation of IKr channels
-        # Current        
-        self.GKr = self.GKr_max * self.GKr_adj
-        IKr = self.GKr * sqrt(self.extra.Ko / 5.4) * x * r * (V - nernst.EK) # Rapid delayed Potassium current  in [uA/uF]
+        # Current
+        base = 0.046
+        GKr = base
+        if self.cell.mode==1 : GKr = 1.3*base
+        elif self.cell.mode==2 : GKr = 0.8*base        
+        IKr = GKr * sqrt(self.extra.Ko / 5.4) * x * r * (V - nernst.EK) # Rapid delayed Potassium current  in [uA/uF]
     
         return [d_xf, d_xs], IKr
     
@@ -511,8 +505,6 @@ class IKs():
         self.y0 = [self.xs1, self.xs2]
 
         #: Maximum conductance
-        self.GKs_max = 0.0034*1.4  # 'Endocardial' : 0.0034  'Epicardial' : 0.0034*1.4,   'Mid-myocardial' : 0.0034
-        self.GKs_adj = 1.0
                     
     def diff_eq(self, V, xs1, xs2, Cai, camk, nernst):
         
@@ -528,9 +520,10 @@ class IKs():
         d_xs2 = (xs2ss - xs2) / txs2   # desc: Fast, high voltage IKs activation
         
         KsCa = 1.0 + 0.6 / (1.0 + (3.8e-5 / Cai)**1.4) # desc: Maximum conductance for IKs
-        
-        self.GKs = self.GKs_max * self.GKs_adj        
-        IKs = self.GKs * KsCa * xs1 * xs2 * (V - nernst.EKs)  # Slow delayed rectifier Potassium current
+        GKs_b = 0.0034  # 0.006358000000000001
+        GKs = GKs_b
+        if self.cell.mode==1 : GKs = GKs_b * 1.4  # desc: Conductivity adjustment for cell type        
+        IKs = GKs * KsCa * xs1 * xs2 * (V - nernst.EKs)  # Slow delayed rectifier Potassium current
             
         return [d_xs1, d_xs2], IKs
     
@@ -551,8 +544,6 @@ class IK1():
         self.y0 = [self.xk1]
 
         #: Maximum conductance
-        self.GK1_max = 0.1908*1.2 # 'Endocardial' : 0.1908  'Epicardial' : 0.1908*1.2,   'Mid-myocardial' : 0.1908*1.3
-        self.GK1_adj = 1.0
                     
     def diff_eq(self, V, xk1, camk, nernst):
         
@@ -560,9 +551,12 @@ class IK1():
         txk1 = 122.2 / (exp(-(V + 127.2) / 20.36) + exp((V + 236.8) / 69.33))  # Time constant for activation of IK1 channels  : tx in 2011        
         d_xk1 = (xk1ss - xk1) / txk1  # Activation of IK1 channels        
         rk1 = 1.0 / (1.0 + exp((V + 105.8 - 2.6 * self.extra.Ko) / 9.493))   # Inactivation of IK1 channels    : r in 2011            
-        # desc: Conductivity of IK1 channels, cell-type dependent        
-        self.GK1 = self.GK1_max * self.GK1_adj
-        IK1 = self.GK1 * sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
+        # desc: Conductivity of IK1 channels, cell-type dependent
+        GK1_b = 0.1908 # 0.3239783999999998 in 2017
+        GK1 = GK1_b  
+        if self.cell.mode==1 :  GK1 = GK1_b * 1.2
+        elif self.cell.mode==2 :  GK1 = GK1_b * 1.3        
+        IK1 = GK1 * sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
             
         return [d_xk1], IK1
     
@@ -782,18 +776,19 @@ class INab():
         self.cell = cell
         self.extra = extra    
             
-    def calculate(self, V, Nai):
-        
+    def calculate(self, V, Nai):        
         B = self.phys.FRT
         v0 = 0
         PNab = 3.75e-10
         A = PNab * self.phys.FFRT * (Nai * exp(V * self.phys.FRT) - self.extra.Nao) / B            
         U = B * (V - v0)
-        INab = (A*U)/(exp(U)-1.0)
-        # if -1e-7<=U and U<=1e-7: INab = A*(1.0-0.5*U)   # Background Sodium current   in [uA/uF] <- 2017 version
-                    
-        return INab
-    
+        
+        if -1e-7<=U and U<=1e-7: 
+            return A*(1.0-0.5*U)   # Background Sodium current   in [uA/uF] <- 2017 version
+        else:
+            return (A*U)/(exp(U)-1)
+
+        
 class ICab():
     '''
     ICab :: Background Calcium current
@@ -810,10 +805,12 @@ class ICab():
         PCab = 2.5e-8
         A = PCab * 4.0 * self.phys.FFRT * (Cai * exp( 2.0 * V * self.phys.FRT) - 0.341 * self.extra.Cao) / B
         U = B * (V - v0)
-        ICab = (A*U)/(exp(U)-1.0)
-        # if -1e-7<=U and U<=1e-7:  ICab = A*(1.0-0.5*U) # Background Calcium current  in [uA/uF] <- 2017 version
-                            
-        return ICab
+
+        if -1e-7<=U and U<=1e-7:  
+            return A*(1.0-0.5*U) # Background Calcium current  in [uA/uF] <- 2017 version
+        else:
+            return (A*U)/(exp(U)-1)
+            
     
 class IpCa():
     '''
@@ -988,8 +985,7 @@ class Calcium():
         cm = 1.0
         cmdnmax_b = 0.05
         cmdnmax = cmdnmax_b  
-        if self.cell.mode == 1:
-            cmdnmax = 1.3*cmdnmax_b        
+        if self.cell.mode == 1: cmdnmax = 1.3*cmdnmax_b        
         kmcmdn  = 0.00238
         trpnmax = 0.07
         kmtrpn  = 0.0005
@@ -1047,13 +1043,12 @@ class ORD2011():
         self.cell = Cell(self.phys)        
         self.extra = Extra()
         
-        self.current_response_info = trace.CurrentResponseInfo(protocol)
+        self.current_response_info = mod_trace.CurrentResponseInfo(protocol)
         
         self.protocol = protocol
         
-        self.membrane = Membrane()
-        self.stimulus = Stimulus()      
-
+        self.membrane = Membrane()        
+        self.stimulus = Stimulus()
         self.nernst = Nernst(self.phys, self.cell, self.extra)
         self.camk = CaMK()  
         
@@ -1089,9 +1084,9 @@ class ORD2011():
 
     def set_result(self, t, y, log=None):
         self.times =  t
-        self.V = y[0]    
-
-    # @jit                     
+        self.V = y[0]            
+        
+                         
     def differential_eq(self, t, y):    
         V, Nai, Na_ss, Ki, K_ss, Cai, cass, Ca_nsr, Ca_jsr,\
             m, hf, hs, j, hsp, jp, \
@@ -1117,7 +1112,7 @@ class ORD2011():
         d_IKr_li, IKr = self.ikr.diff_eq(V, xf, xs, self.camk, self.nernst)
         d_IKs_li, IKs = self.iks.diff_eq(V, xs1, xs2, Cai, self.camk, self.nernst) 
         d_IK1_li, IK1 = self.ik1.diff_eq(V, xk1, self.camk, self.nernst) 
-        
+        # print(t, IK1)
         INaCa = self.inaca.calculate(V, Nai, Cai)
         INaCa_ss = self.inacass.calculate(Na_ss, cass, self.inaca)
         INaK = self.inak.calculate(V, Nai, Na_ss, Ki, K_ss)
@@ -1142,20 +1137,29 @@ class ORD2011():
         d_calcium_li = self.calcium.diff_eq(Cai, cass, Ca_nsr, Ca_jsr, 
                                             IpCa, ICab, INaCa, ICaL, INaCa_ss, 
                                             self.ryr, self.serca, self.diff)   
-                   
+       
         # Membrane potential     
         I_ion = INa + INaL + INaCa + INaK + INab + ICaNa + INaCa_ss + IpCa + ICab + ICaL + Ito + IKr + IKs + IK1 + IKb + ICaK
         d_V_li = self.membrane.d_V( I_ion + self.stimulus.I )
         
         if self.current_response_info:  # 'INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1'
-            current_timestep = [
-                trace.Current(name='I_Na', value=INa),
-                trace.Current(name='I_NaL', value=INaL),                
-                trace.Current(name='I_to', value=Ito),
-                trace.Current(name='I_CaL', value=ICaL),
-                trace.Current(name='I_Kr', value=IKr),
-                trace.Current(name='I_Ks', value=IKs),
-                trace.Current(name='I_K1', value=IK1),
+            current_timestep = [                
+                mod_trace.Current(name='I_Na', value=INa),
+                mod_trace.Current(name='I_NaL', value=INaL),                
+                mod_trace.Current(name='I_To', value=Ito),
+                mod_trace.Current(name='I_CaL', value=ICaL),
+                mod_trace.Current(name='I_CaNa', value=ICaNa),
+                mod_trace.Current(name='I_CaK', value=ICaK),
+                mod_trace.Current(name='I_Kr', value=IKr),
+                mod_trace.Current(name='I_Ks', value=IKs),
+                mod_trace.Current(name='I_K1', value=IK1),
+                mod_trace.Current(name='I_NaCa', value=INaCa),
+                mod_trace.Current(name='I_NaCa_ss', value=INaCa_ss),
+                mod_trace.Current(name='I_NaK', value=INaK),
+                mod_trace.Current(name='I_Kb', value=IKb),
+                mod_trace.Current(name='I_Nab', value=INab),
+                mod_trace.Current(name='I_Cab', value=ICab),
+                mod_trace.Current(name='I_pCa', value=IpCa),                
             ]
             self.current_response_info.currents.append(current_timestep)
             
@@ -1164,16 +1168,12 @@ class ORD2011():
                         d_ryr_li + d_CaMKt_li
                             
     
+    
     def response_diff_eq(self, t, y):
         
-        if type(self.protocol) == PacingProtocol :
-            if self.protocol.type=='AP':            
-                face = self.protocol.pacing(t)
-                self.stimulus.cal_stimulation(face) # Stimulus    
-            
-            elif self.protocol.type=='VC':
-                y[0] = self.protocol.voltage_at_time(t)
-
+        if isinstance(self.protocol, protocol_lib.PacingProtocol)  :                      
+            face = self.protocol.pacing(t)
+            self.stimulus.cal_stimulation(face) # Stimulus    
         else:                         
             y[0] = self.protocol.get_voltage_at_time(t)
                     
@@ -1185,7 +1185,6 @@ class ORD2011():
         
     def diff_eq_odeint(self, y, t, *p):
         return self.response_diff_eq(t, y)
-    
    
 
 
@@ -1198,5 +1197,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
