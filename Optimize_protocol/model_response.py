@@ -43,12 +43,12 @@ import mod_trace
 
 
 def get_model_response_JK( model, protocol, prestep=None):    
-    
-    
+        
     simulator = simulator_scipy.Simulator(model)     
             
     if isinstance(model, ORD2011):
-        simulator.model.cell.mode = 1   
+        simulator.model.change_cell(1)
+        
         if prestep == None:
             print("There is no pre-step simulation.")
         elif prestep == 5000:        

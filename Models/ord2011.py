@@ -18,6 +18,87 @@ sys.path.append('../Lib')
 import protocol_lib
 import mod_trace
         
+
+
+
+
+
+class Ishi():
+    Mg_in = 1
+    SPM_in = 0.005
+    phi = 0.9
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def I_K1(cls, V, E_K, y1, K_out, g_K1):
+        IK1_alpha = (0.17*exp(-0.07*((V-E_K) + 8*cls.Mg_in)))/(1+0.01*exp(0.12*(V-E_K)+8*cls.Mg_in))
+        IK1_beta = (cls.SPM_in*280*exp(0.15*(V-E_K)+8*cls.Mg_in))/(1+0.01*exp(0.13*(V-E_K)+8*cls.Mg_in));
+        Kd_spm_l = 0.04*exp(-(V-E_K)/9.1);
+        Kd_mg = 0.45*exp(-(V-E_K)/20);
+        fo = 1/(1 + (cls.Mg_in/Kd_mg));
+        y2 = 1/(1 + cls.SPM_in/Kd_spm_l);
+        
+        d_y1 = (IK1_alpha*(1-y1) - IK1_beta*fo**3*y1);
+
+        gK1 = 2.5*(K_out/5.4)**.4 * g_K1 
+        I_K1 = gK1*(V-E_K)*(cls.phi*fo*y1 + (1-cls.phi)*y2);
+
+        return [I_K1, y1]
+
+
+
+class ExperimentalArtefactsThesis():
+    """
+    Experimental artefacts from Lei 2020
+    For a cell model that includes experimental artefacts, you need to track
+    three additional differential parameters: 
+
+    The undetermined variables are: v_off, g_leak, e_leak
+    Given the simplified model in section 4c,
+    you can make assumptions that allow you to reduce the undetermined
+    variables to only:
+        v_off_dagger – mostly from liquid-junction potential
+        g_leak_dagger
+        e_leak_dagger (should be zero)
+    """
+    def __init__(self, g_leak=1, v_off=-2.8, e_leak=0, r_pipette=2E-3,
+                 comp_rs=.8, r_access_star=20E-3,
+                 c_m_star=60, tau_clamp=.8E-3, c_p_star=4, tau_z=7.5E-3,
+                 tau_sum=40E-3, comp_predrs=None):
+        """
+        Parameters:
+            Experimental measures:
+                r_pipette – series resistance of the pipette
+                c_m – capacitance of the membrane
+            Clamp settings
+                alpha – requested proportion of series resistance compensation
+        """
+        self.g_leak = g_leak
+        self.e_leak = e_leak
+        self.v_off = v_off
+        self.c_p = c_p_star * .95
+        self.c_p_star = c_p_star
+        self.r_pipette = r_pipette
+        self.c_m = c_m_star * .95
+        self.r_access = r_access_star * .95
+        self.comp_rs = comp_rs # Rs compensation
+        self.r_access_star = r_access_star
+        self.c_m_star = c_m_star
+        self.tau_clamp = tau_clamp
+        self.tau_z = tau_z
+        self.tau_sum = tau_sum
+
+        if comp_predrs is None:
+            self.comp_predrs = comp_rs # Rs prediction
+
+
+
+
+
+
+
         
 class Membrane():
     def __init__(self):        
@@ -53,9 +134,7 @@ class Phys():
         self.FFRT = self.F*self.F/(self.R*self.T)  
         self.zna = 1
         self.zca = 2
-        self.zk = 1
-
-        self.eps = np.finfo(float).eps
+        self.zk = 1        
 
 class Cell():
     def __init__(self, phys):
@@ -63,7 +142,7 @@ class Cell():
         Cell geometry
         Page 6        
         '''                        
-        self.mode = 1  # The type of cell. Endo=0, Epi=1, Mid=2
+        self.mode = -1  # The type of cell. Endo=0, Epi=1, Mid=2
         self.L = 0.01  # [cm] Cell length
         self.rad = 0.0011  # [cm] cell radius
         self.vcell = 1000 * 3.14 * self.rad * self.rad * self.L # [uL] Cell volume
@@ -153,7 +232,8 @@ class INa():
         self.y0 = [self.m, self.hf, self.hs, self.j, self.hsp, self.jp]
 
         #: Maximum conductance of INa channels
-        self.GNa = 75.0        
+        self.GNa = 75.0      
+        self.G_adj = 1.0  
             
     def diff_eq(self, V, m, hf, hs, j, hsp, jp, camk, nernst):
         '''
@@ -197,7 +277,7 @@ class INa():
         d_jp = (jss - jp) / tjp # desc: Recovery from inactivation gate for phosphorylated INa channels
         
         # Current                
-        INa = self.GNa * (V - nernst.ENa) * m**3 * ((1.0 - camk.f) * h * j + camk.f * hp * jp) # in [uA/uF]  desc: Fast sodium current
+        INa = self.GNa * self.G_adj * (V - nernst.ENa) * m**3 * ((1.0 - camk.f) * h * j + camk.f * hp * jp) # in [uA/uF]  desc: Fast sodium current
     
         return [d_m, d_hf, d_hs, d_j, d_hsp, d_jp], INa
 
@@ -218,7 +298,9 @@ class INaL():
 
         self.y0 = [self.mL, self.hL, self.hLp]
 
-        #: Maximum conductance          
+        #: Maximum conductance       
+        self.GNaL = 0.0075    # 'Endocardial' : 0.0075 ,   'Epicardial' : 0.0075 * 0.6,   'Mid-myocardial' : 0.0075 ,
+        self.G_adj = 1.0
             
     def diff_eq(self, V, mL, hL, hLp, camk, nernst, ina):
         mLss = 1.0 / (1.0 + exp(-(V + 42.85) / 5.264)) # desc: Steady state value of m-gate for INaL
@@ -234,14 +316,9 @@ class INaL():
         thLp = 3 * thL # in [ms] desc: Time constant for inactivation of phosphorylated INaL channels
 
         d_hLp = (hLssp - hLp) / thLp  # desc: Inactivation gate for phosphorylated INaL channels
-                
-        # Current
-        GNaL_b = 0.0075
-        GNaL = GNaL_b
-        if self.cell.mode == 1:  
-            GNaL = GNaL_b*0.6  # desc: Adjustment for different cell types            
-        fINaLp = camk.f
-        INaL = GNaL * (V - nernst.ENa) * mL * ((1 - fINaLp) * hL + fINaLp * hLp)
+                    
+        # Current                
+        INaL = self.GNaL*self.G_adj * (V - nernst.ENa) * mL * ((1 - camk.f) * hL + camk.f * hLp)
     
         return [d_mL, d_hL, d_hLp], INaL
 
@@ -265,8 +342,13 @@ class Ito():
         self.iSp  = 1
 
         self.y0 = [self.a, self.iF, self.iS, self.ap, self.iFp, self.iSp]
-
+        
+        self.delta_epi = 1.0
+        
         #: Maximum conductance
+        self.Gto = 0.02    # 'Endocardial' : 0.02 ,   'Epicardial' : 4.0*0.02   'Mid-myocardial' : 4.0*0.02,
+        self.G_adj = 1.0
+
          
             
     def diff_eq(self, V, a, iF, iS, ap, iFp, iSp, camk, nernst):
@@ -278,12 +360,15 @@ class Ito():
         d_a = (ass - a) / ta   # desc: Ito activation gate
         
         iss = 1.0 / (1.0 + exp((V + 43.94) / 5.711))   # desc: Steady-state value for Ito inactivation
-        delta_epi = 1.0
-        if self.cell.mode==1:  delta_epi = 1.0 - (0.95 / (1 + exp((V + 70.0) / 5.0)))   # desc: Adjustment for different cell types
+        
+        self.delta_epi = 1.0
+        if self.cell.mode==1:  
+            self.delta_epi = 1.0 - (0.95 / (1 + exp((V + 70.0) / 5.0)))   # desc: Adjustment for different cell types
+
         tiF_b = (4.562 + 1 / (0.3933 * exp(-(V+100) / 100) + 0.08004 * exp((V + 50) / 16.59)))  # desc: Time constant for fast component of Ito inactivation     in [ms]
         tiS_b = (23.62 + 1 / (0.001416 * exp(-(V + 96.52) / 59.05) + 1.780e-8 * exp((V + 114.1) / 8.079)))   # desc: Time constant for slow component of Ito inactivation  in [ms]
-        tiF = tiF_b * delta_epi
-        tiS = tiS_b * delta_epi
+        tiF = tiF_b * self.delta_epi
+        tiS = tiS_b * self.delta_epi
         AiF = 1.0 / (1.0 + exp((V - 213.6) / 151.2))  # desc: Fraction of fast inactivating Ito channels
         AiS = 1.0 - AiF        
         d_iF = (iss - iF) / tiF  # desc: Fast component of Ito activation        
@@ -302,15 +387,11 @@ class Ito():
         
         ip = AiF * iFp + AiS * iSp  # desc: Inactivation gate for phosphorylated Ito channels
         
-        # Current
-        Gto_b = 0.02
-        Gto = Gto_b
-        if self.cell.mode==1 :  Gto = Gto_b*4.0
-        elif self.cell.mode==2 :  Gto = Gto_b*4.0                 
-        Ito = Gto * (V - nernst.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip) # desc: Transient outward Potassium current
+        # Current        
+        Ito = self.Gto*self.G_adj * (V - nernst.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip) # desc: Transient outward Potassium current
     
         return [d_a, d_iF, d_iS, d_ap, d_iFp, d_iSp], Ito
-    
+
 
 class ICaL():
     '''
@@ -343,6 +424,8 @@ class ICaL():
         self.y0 = [self.d, self.ff, self.fs, self.fcaf, self.fcas, self.jca, self.nca, self.ffp, self.fcafp]
 
         #: Maximum conductance
+        self.PCa = 0.0001*2.5   # 'Endocardial' : PCa_b(0.0001) ,   'Epicardial' : PCa_b*1.2  'Mid-myocardial' : PCa_b*2.5
+        self.G_adj = 1.0
                       
     def diff_eq(self, V, 
                 d, ff, fs, fcaf, fcas, jca, nca, ffp, fcafp, 
@@ -426,11 +509,7 @@ class ICaL():
         else :
             PhiCaK = (A_3 * U_3) / (exp(U_3)-1)
         
-        PCa_b = 0.0001
-        PCa = PCa_b
-        if self.cell.mode==1: PCa = PCa_b*1.2
-        elif self.cell.mode==2: PCa = PCa_b*2.5
-                    
+        PCa = self.PCa*self.G_adj
         PCap   = 1.1      * PCa
         PCaNa  = 0.00125  * PCa
         PCaK   = 3.574e-4 * PCa
@@ -463,6 +542,8 @@ class IKr():
         self.y0 = [self.xf, self.xs]
 
         #: Maximum conductance
+        self.GKr = 0.046*1.3   # 'Endocardial' : base = 0.046 ,   'Epicardial' : 1.3*base 'Mid-myocardial' : 0.8*base  
+        self.G_adj = 1.0
          
             
     def diff_eq(self, V, xf, xs, camk, nernst):
@@ -478,12 +559,8 @@ class IKr():
         x = Axf * xf + Axs * xs   # Activation of IKr channels
         # Inactivation
         r = 1.0 / (1.0 + exp((V + 55.0) / 75.0)) * 1.0 / (1.0 + exp((V - 10.0) / 30.0))  # Inactivation of IKr channels
-        # Current
-        base = 0.046
-        GKr = base
-        if self.cell.mode==1 : GKr = 1.3*base
-        elif self.cell.mode==2 : GKr = 0.8*base        
-        IKr = GKr * sqrt(self.extra.Ko / 5.4) * x * r * (V - nernst.EK) # Rapid delayed Potassium current  in [uA/uF]
+        # Current     
+        IKr = self.GKr*self.G_adj * sqrt(self.extra.Ko / 5.4) * x * r * (V - nernst.EK) # Rapid delayed Potassium current  in [uA/uF]
     
         return [d_xf, d_xs], IKr
     
@@ -505,6 +582,8 @@ class IKs():
         self.y0 = [self.xs1, self.xs2]
 
         #: Maximum conductance
+        self.GKs = 0.0034*1.4   # 'Endocardial' : GKs_b = 0.0034 ,   'Epicardial' : GKs_b * 1.4  'Mid-myocardial' : GKs_b
+        self.G_adj = 1.0
                     
     def diff_eq(self, V, xs1, xs2, Cai, camk, nernst):
         
@@ -520,10 +599,8 @@ class IKs():
         d_xs2 = (xs2ss - xs2) / txs2   # desc: Fast, high voltage IKs activation
         
         KsCa = 1.0 + 0.6 / (1.0 + (3.8e-5 / Cai)**1.4) # desc: Maximum conductance for IKs
-        GKs_b = 0.0034  # 0.006358000000000001
-        GKs = GKs_b
-        if self.cell.mode==1 : GKs = GKs_b * 1.4  # desc: Conductivity adjustment for cell type        
-        IKs = GKs * KsCa * xs1 * xs2 * (V - nernst.EKs)  # Slow delayed rectifier Potassium current
+          
+        IKs = self.GKs*self.G_adj * KsCa * xs1 * xs2 * (V - nernst.EKs)  # Slow delayed rectifier Potassium current
             
         return [d_xs1, d_xs2], IKs
     
@@ -544,6 +621,8 @@ class IK1():
         self.y0 = [self.xk1]
 
         #: Maximum conductance
+        self.GK1 = 0.1908*1.3   # 'Endocardial' : GK1_b = 0.1908  ,   'Epicardial' : GK1_b * 1.2 'Mid-myocardial' : GK1_b * 1.3  
+        self.G_adj = 1.0
                     
     def diff_eq(self, V, xk1, camk, nernst):
         
@@ -551,12 +630,8 @@ class IK1():
         txk1 = 122.2 / (exp(-(V + 127.2) / 20.36) + exp((V + 236.8) / 69.33))  # Time constant for activation of IK1 channels  : tx in 2011        
         d_xk1 = (xk1ss - xk1) / txk1  # Activation of IK1 channels        
         rk1 = 1.0 / (1.0 + exp((V + 105.8 - 2.6 * self.extra.Ko) / 9.493))   # Inactivation of IK1 channels    : r in 2011            
-        # desc: Conductivity of IK1 channels, cell-type dependent
-        GK1_b = 0.1908 # 0.3239783999999998 in 2017
-        GK1 = GK1_b  
-        if self.cell.mode==1 :  GK1 = GK1_b * 1.2
-        elif self.cell.mode==2 :  GK1 = GK1_b * 1.3        
-        IK1 = GK1 * sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
+
+        IK1 = self.GK1*self.G_adj * sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
             
         return [d_xk1], IK1
     
@@ -572,6 +647,8 @@ class INaCa():
         self.extra = extra    
 
         #: Maximum conductance
+        self.Gncx = 0.0008 * 1.4   # 'Endocardial' : 0.0008  ,   'Epicardial' : 0.0008 * 1.1   'Mid-myocardial' : 0.0008 * 1.4
+        self.G_adj = 1.0
                      
     def calculate(self, V, Nai, Cai):
         
@@ -628,12 +705,8 @@ class INaCa():
         allo    = 1 / (1 + (KmCaAct / Cai)**2.0)
         JncxNa  = 3 * (E4 * k7 - E1 * k8) + E3 * k4pp - E2 * k3pp
         JncxCa  = E2 * k2 - E1 * k1  
-        Gncx_b = 0.0008        
-        self.Gncx = Gncx_b*1.4
-        if self.cell.mode==0: self.Gncx = Gncx_b
-        elif self.cell.mode==1: self.Gncx = Gncx_b*1.1
-                    
-        return 0.8 * self.Gncx * allo * (self.phys.zna * JncxNa + self.phys.zca * JncxCa)  # Sodium/Calcium exchange current  in [uA/uF]
+
+        return 0.8 * self.Gncx*self.G_adj * allo * (self.phys.zna * JncxNa + self.phys.zca * JncxCa)  # Sodium/Calcium exchange current  in [uA/uF]
     
 class INaCa_ss():
     '''
@@ -695,6 +768,9 @@ class INaK():
         self.phys = phys
         self.cell = cell
         self.extra = extra    
+
+        self.Pnak = 30   # 'Endocardial' : Pnak_b = 30   ,   'Epicardial' : Pnak_b*0.9  'Mid-myocardial' : Pnak_b*0.7
+        self.G_adj = 1.0
             
     def calculate(self, V, Nai, Na_ss, Ki, K_ss):
         
@@ -740,12 +816,8 @@ class INaK():
         E4 = x4 / (x1 + x2 + x3 + x4)
         JnakNa = 3 * (E1 * a3 - E2 * b3)
         JnakK  = 2 * (E4 * b1 - E3 * a1)
-        Pnak_b = 30        
-        Pnak = Pnak_b
-        if self.cell.mode==1: Pnak = Pnak_b*0.9
-        elif self.cell.mode==2: Pnak = Pnak_b*0.7
-                    
-        return Pnak * (self.phys.zna * JnakNa + self.phys.zk * JnakK)  # Sodium/Potassium ATPase current    in [uA/uF]
+                            
+        return self.Pnak*self.G_adj * (self.phys.zna * JnakNa + self.phys.zk * JnakK)  # Sodium/Potassium ATPase current    in [uA/uF]
    
 class IKb():
     '''
@@ -756,15 +828,15 @@ class IKb():
         self.phys = phys
         self.cell = cell
         self.extra = extra    
+
+        self.GKb = 0.003   # 'Endocardial' : GKb_b = 0.003   ,   'Epicardial' : GKb_b*0.6     'Mid-myocardial' : GKb_b
+        self.G_adj = 1.0        
             
     def calculate(self, V, nernst):
         
         xkb = 1.0 / (1.0 + exp(-(V - 14.48) / 18.34))
-        GKb_b = 0.003
-        GKb = GKb_b
-        if self.cell.mode==1: GKb = GKb_b*0.6
-                    
-        return GKb * xkb * (V - nernst.EK)  # Background Potassium current   in [uA/uF]
+                            
+        return self.GKb*self.G_adj * xkb * (V - nernst.EK)  # Background Potassium current   in [uA/uF]
     
 class INab():
     '''
@@ -775,12 +847,14 @@ class INab():
         self.phys = phys
         self.cell = cell
         self.extra = extra    
+
+        self.PNab = 3.75e-10   # 'Endocardial' :   ,   'Epicardial' :    'Mid-myocardial' : 
+        self.G_adj = 1.0
             
     def calculate(self, V, Nai):        
         B = self.phys.FRT
-        v0 = 0
-        PNab = 3.75e-10
-        A = PNab * self.phys.FFRT * (Nai * exp(V * self.phys.FRT) - self.extra.Nao) / B            
+        v0 = 0        
+        A = self.PNab*self.G_adj * self.phys.FFRT * (Nai * exp(V * self.phys.FRT) - self.extra.Nao) / B            
         U = B * (V - v0)
         
         if -1e-7<=U and U<=1e-7: 
@@ -798,12 +872,14 @@ class ICab():
         self.phys = phys
         self.cell = cell
         self.extra = extra    
+
+        self.PCab = 2.5e-8
+        self.G_adj = 1.0
             
     def calculate(self, V, Cai):        
         B = 2 * self.phys.FRT
-        v0 = 0
-        PCab = 2.5e-8
-        A = PCab * 4.0 * self.phys.FFRT * (Cai * exp( 2.0 * V * self.phys.FRT) - 0.341 * self.extra.Cao) / B
+        v0 = 0        
+        A = self.PCab*self.G_adj * 4.0 * self.phys.FFRT * (Cai * exp( 2.0 * V * self.phys.FRT) - 0.341 * self.extra.Cao) / B
         U = B * (V - v0)
 
         if -1e-7<=U and U<=1e-7:  
@@ -821,11 +897,14 @@ class IpCa():
         self.phys = phys
         self.cell = cell
         self.extra = extra    
+
+        self.GpCa = 0.0005
+        self.G_adj = 1.0
             
     def calculate(self, Cai):        
-        GpCa = 0.0005
+        
         KmCap = 0.0005
-        IpCa = GpCa * Cai / (KmCap + Cai)  # Sarcolemmal Calcium pump current   in [uA/uF]
+        IpCa = self.GpCa*self.G_adj * Cai / (KmCap + Cai)  # Sarcolemmal Calcium pump current   in [uA/uF]
                     
         return IpCa
     
@@ -847,22 +926,26 @@ class Ryr():
 
         bt=4.75
         a_rel=0.5*bt        
-        Jrel_inf_temp = a_rel * -ICaL / (1 + (1.5 / Ca_jsr)**8)
-        Jrel_inf = Jrel_inf_temp
-        if (self.cell.mode==2):   Jrel_inf = Jrel_inf_temp * 1.7      
+        Jrel_inf_temp = -a_rel * ICaL / (1 + (1.5 / Ca_jsr)**8)
+        self.Jrel_inf = Jrel_inf_temp
+        if (self.cell.mode==2):   
+            self.Jrel_inf = Jrel_inf_temp * 1.7      
         tau_rel_temp = bt / (1.0 + 0.0123 / Ca_jsr)
         tau_rel = tau_rel_temp
         if (tau_rel_temp < 0.001):   tau_rel = 0.001                        
-        d_Jrelnp = (Jrel_inf - Jrelnp) / tau_rel   
+        d_Jrelnp = (self.Jrel_inf - Jrelnp) / tau_rel   
+
         btp = 1.25*bt
         a_relp = 0.5*btp
-        Jrel_temp = a_relp * -ICaL / (1 + (1.5 / Ca_jsr)**8)
-        Jrel_infp = Jrel_temp
-        if self.cell.mode==2:   Jrel_infp = Jrel_temp * 1.7                
+        Jrel_temp = -a_relp * ICaL / (1 + (1.5 / Ca_jsr)**8)
+        self.Jrel_infp = Jrel_temp
+        if self.cell.mode==2:   
+            self.Jrel_infp = Jrel_temp * 1.7                
         tau_relp_temp = btp / (1 + 0.0123 / Ca_jsr)
         tau_relp = tau_relp_temp
         if tau_relp_temp < 0.001:   tau_relp = 0.001        
-        d_Jrelp = (Jrel_infp - Jrelp) / tau_relp     
+        d_Jrelp = (self.Jrel_infp - Jrelp) / tau_relp     
+
         Jrel_scaling_factor = 1.0
         self.Jrel = Jrel_scaling_factor * (1.0 - camk.f) * Jrelnp + camk.f * Jrelp # desc: SR Calcium release flux via Ryanodine receptor  in [mmol/L/ms]
 
@@ -894,10 +977,11 @@ class Serca():
         self.extra = extra  
         
     def calculate(self, Cai, Ca_nsr, Ca_jsr, camk):
-        upScale = 1.0
-        if (self.cell.mode == 1):   upScale = 1.3
-        Jupnp = upScale * (0.004375 * Cai / (Cai + 0.00092))
-        Jupp  = upScale * (2.75 * 0.004375 * Cai / (Cai + 0.00092 - 0.00017))        
+        self.upScale = 1.0
+        if (self.cell.mode == 1):   
+            self.upScale = 1.3
+        Jupnp = self.upScale * (0.004375 * Cai / (Cai + 0.00092))
+        Jupp  = self.upScale * (2.75 * 0.004375 * Cai / (Cai + 0.00092 - 0.00017))        
         Jleak = 0.0039375 * Ca_nsr / 15.0 # in [mmol/L/ms]
         Jup_b = 1.0
         self.Jup = Jup_b * ((1.0 - camk.f) * Jupnp + camk.f * Jupp - Jleak) # desc: Total Ca2+ uptake, via SERCA pump, from myoplasm to nsr in [mmol/L/ms]        
@@ -985,7 +1069,8 @@ class Calcium():
         cm = 1.0
         cmdnmax_b = 0.05
         cmdnmax = cmdnmax_b  
-        if self.cell.mode == 1: cmdnmax = 1.3*cmdnmax_b        
+        if self.cell.mode == 1: 
+            cmdnmax = 1.3*cmdnmax_b        
         kmcmdn  = 0.00238
         trpnmax = 0.07
         kmtrpn  = 0.0005
@@ -1035,9 +1120,13 @@ class ORD2011():
     """    
     O'Hara-Rudy CiPA v1.0 (2011)
     """
-    def __init__(self, protocol=None):
+    def __init__(self, protocol=None, is_exp_artefact=False):
         
         self.name = "ORD2011"
+
+        self.is_exp_artefact = is_exp_artefact
+        if self.is_exp_artefact:
+            self.exp_artefacts = ExperimentalArtefactsThesis()
         
         self.phys = Phys()
         self.cell = Cell(self.phys)        
@@ -1079,15 +1168,17 @@ class ORD2011():
         self.y0 = self.membrane.y0 + self.sodium.y0 + self.potassium.y0 + self.calcium.y0 +\
                     self.ina.y0 + self.inal.y0 + self.ito.y0 + self.ical.y0 + self.ikr.y0 + self.iks.y0 + self.ik1.y0 +\
                         self.ryr.y0 + self.camk.y0
+        if self.is_exp_artefact:
+            self.y0 += [0, 0, 0 ,0, 0]
                             
         self.params = []
 
     def set_result(self, t, y, log=None):
         self.times =  t
-        self.V = y[0]            
-        
+        self.V = y[0]         
+    
                          
-    def differential_eq(self, t, y):    
+    def differential_eq(self, t, y):   # len(y) = 41
         V, Nai, Na_ss, Ki, K_ss, Cai, cass, Ca_nsr, Ca_jsr,\
             m, hf, hs, j, hsp, jp, \
                 mL, hL, hLp, \
@@ -1096,7 +1187,9 @@ class ORD2011():
                             xf, xs,\
                                 xs1, xs2, \
                                     xk1, \
-                                        Jrelnp, Jrelp, CaMKt = y
+                                        Jrelnp, Jrelp, CaMKt = y[:41]
+        if self.is_exp_artefact:
+            v_p, v_clamp, i_out, v_cmd, v_est = y[41:]
 
         # Calculate Nernst  
         self.nernst.calculate(Nai, Ki)        
@@ -1138,44 +1231,204 @@ class ORD2011():
                                             IpCa, ICab, INaCa, ICaL, INaCa_ss, 
                                             self.ryr, self.serca, self.diff)   
        
-        # Membrane potential     
-        I_ion = INa + INaL + INaCa + INaK + INab + ICaNa + INaCa_ss + IpCa + ICab + ICaL + Ito + IKr + IKs + IK1 + IKb + ICaK
-        d_V_li = self.membrane.d_V( I_ion + self.stimulus.I )
-        
-        if self.current_response_info:  # 'INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1'
-            current_timestep = [                
-                mod_trace.Current(name='I_Na', value=INa),
-                mod_trace.Current(name='I_NaL', value=INaL),                
-                mod_trace.Current(name='I_To', value=Ito),
-                mod_trace.Current(name='I_CaL', value=ICaL),
-                mod_trace.Current(name='I_CaNa', value=ICaNa),
-                mod_trace.Current(name='I_CaK', value=ICaK),
-                mod_trace.Current(name='I_Kr', value=IKr),
-                mod_trace.Current(name='I_Ks', value=IKs),
-                mod_trace.Current(name='I_K1', value=IK1),
-                mod_trace.Current(name='I_NaCa', value=INaCa),
-                mod_trace.Current(name='I_NaCa_ss', value=INaCa_ss),
-                mod_trace.Current(name='I_NaK', value=INaK),
-                mod_trace.Current(name='I_Kb', value=IKb),
-                mod_trace.Current(name='I_Nab', value=INab),
-                mod_trace.Current(name='I_Cab', value=ICab),
-                mod_trace.Current(name='I_pCa', value=IpCa),                
-            ]
-            self.current_response_info.currents.append(current_timestep)
-            
-        return d_V_li + d_sodium_li + d_potassium_li + d_calcium_li + \
-                    d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
-                        d_ryr_li + d_CaMKt_li
+        # Membrane potential       
                             
-    
+
+        i_f = 0
+        i_K1_ishi = 0
+        i_up = 0
+        i_leak = 0
+        i_no_ion = 0
+        
+        # -------------------------------------------------------------------
+        # Experimental Artefact
+        if self.is_exp_artefact:
+            ##############Involved##########################            
+            i_ion = self.exp_artefacts.c_m*(INa + INaL + INaCa + INaK + INab + ICaNa + INaCa_ss + IpCa + ICab + ICaL + Ito + IKr + IKs + IK1 + IKb + ICaK + i_f + i_K1_ishi + i_no_ion + self.stimulus.I)
+            g_leak = self.exp_artefacts.g_leak
+            e_leak = self.exp_artefacts.e_leak
+            c_m = self.exp_artefacts.c_m
+            c_m_star = self.exp_artefacts.c_m_star
+            r_access = self.exp_artefacts.r_access
+            v_off = self.exp_artefacts.v_off
+            tau_clamp = self.exp_artefacts.tau_clamp
+            comp_rs = self.exp_artefacts.comp_rs
+            comp_predrs = self.exp_artefacts.comp_predrs
+            r_access_star = self.exp_artefacts.r_access_star
+            tau_sum = self.exp_artefacts.tau_sum
+            c_p = self.exp_artefacts.c_p
+            c_p_star = self.exp_artefacts.c_p_star
+            tau_z = self.exp_artefacts.tau_z
+
+            # y[23] : v_p
+            # y[24] : v_clamp
+            # y[25] : I_out 
+            # y[26] : v_cmd
+            # y[27] : v_est
+
+            v_m = V
+            # v_p = y[23]
+            # v_clamp = y[24]
+            # i_out = y[25]
+            # v_cmd = y[26]
+            # v_est = y[27]
+
+            i_seal_leak = g_leak * (v_m - e_leak)
+
+            #REMOVE to get thesis version
+            v_p = v_cmd + r_access_star * comp_rs * (i_ion + i_seal_leak)
+
+            dvm_dt = (1/r_access/c_m) * (v_p + v_off - V) - (i_ion + i_seal_leak) / c_m 
+
+            #dvp_dt = (v_clamp - v_p) / tau_clamp
+
+            #if comp_predrs < .05:
+            #    dvest_dt = 0
+            #else:
+            #    dvest_dt = (v_cmd - v_est) / ((1 - comp_predrs) *
+            #            r_access_star * c_m_star / comp_predrs)
+
+            #vcmd_prime = v_cmd + ((comp_rs * r_access_star * i_out) +
+            #        (comp_predrs * r_access_star * c_m_star * dvest_dt))
+
+            #dvclamp_dt = (vcmd_prime - v_clamp) / tau_sum
+
+            #i_cp = c_p * dvp_dt - c_p_star * dvclamp_dt
+            #
+            #if r_access_star < 1E-6:
+            #    i_cm = c_m_star * dvclamp_dt
+            #else:
+            #    i_cm = c_m_star * dvest_dt
+
+            #i_in = (v_p - v_m + v_off) / r_access #+ i_cp - i_cm
+
+            #di_out_dt = (i_in - i_out) / tau_z
+
+            d_V = dvm_dt
+            dvp_dt = 0.0
+            dvclamp_dt = 0.0
+            di_out_dt = 0.0
+            dvcmd_dt = 0.0
+            dvest_dt = 0.0           
+
+            #d_y[23] = dvp_dt
+            #d_y[24] = dvclamp_dt
+            #d_y[25] = di_out_dt
+            #d_y[27] = dvest_dt
+
+            i_ion = i_ion / self.exp_artefacts.c_m
+            i_seal_leak = i_seal_leak / self.exp_artefacts.c_m
+            #i_out = i_out / self.exp_artefacts.c_m
+            #REMOVE TO GET THESIS VERSION
+            i_out = i_ion + i_seal_leak
+            #i_cm = i_cm / self.exp_artefacts.c_m
+            #i_cp = i_cp / self.exp_artefacts.c_m
+
+            ################################################
+            ################################################
+  
+            if self.current_response_info:
+                current_timestep = [
+                    mod_trace.Current(name='I_Na', value=INa),
+                    mod_trace.Current(name='I_NaL', value=INaL),                
+                    mod_trace.Current(name='I_To', value=Ito),
+                    mod_trace.Current(name='I_CaL', value=ICaL),
+                    mod_trace.Current(name='I_CaNa', value=ICaNa),
+                    mod_trace.Current(name='I_CaK', value=ICaK),
+                    mod_trace.Current(name='I_Kr', value=IKr),
+                    mod_trace.Current(name='I_Ks', value=IKs),
+                    mod_trace.Current(name='I_K1', value=IK1),
+                    mod_trace.Current(name='I_K1_Ishi', value=i_K1_ishi),                    
+                    mod_trace.Current(name='I_NaCa', value=INaCa),
+                    mod_trace.Current(name='I_NaCa_ss', value=INaCa_ss),
+                    mod_trace.Current(name='I_NaK', value=INaK),
+                    mod_trace.Current(name='I_Kb', value=IKb),
+                    mod_trace.Current(name='I_Nab', value=INab),
+                    mod_trace.Current(name='I_Cab', value=ICab),
+                    mod_trace.Current(name='I_pCa', value=IpCa),             
+                    mod_trace.Current(name='I_F', value=i_f),        
+                    mod_trace.Current(name='I_up', value=i_up),
+                    mod_trace.Current(name='I_leak', value=i_leak),       
+                    mod_trace.Current(name='I_ion', value=i_ion),
+                    mod_trace.Current(name='I_seal_leak', value=i_seal_leak),
+                    #trace.Current(name='I_Cm', value=i_cm),
+                    #trace.Current(name='I_Cp', value=i_cp),
+                    #trace.Current(name='I_in', value=i_in),
+                    mod_trace.Current(name='I_out', value=i_out),
+                    mod_trace.Current(name='I_no_ion', value=i_no_ion),
+                    
+                    # trace.Current(name='I_bNa', value=i_b_Na),
+                    # trace.Current(name='I_bCa', value=i_b_Ca),
+                    # trace.Current(name='I_CaT', value=i_CaT),
+                    
+                       
+                    
+                ]
+                self.current_response_info.currents.append(current_timestep)
+
+            return [d_V] + d_sodium_li + d_potassium_li + d_calcium_li + \
+                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
+                            d_ryr_li + d_CaMKt_li + [dvp_dt, dvclamp_dt, di_out_dt, dvcmd_dt, dvest_dt]
+
+        # --------------------------------------------------------------------
+        # Calculate change in Voltage and Save currents
+        else:
+            # Membrane potential                 
+            I_ion = INa + INaL + INaCa + INaK + INab + ICaNa + INaCa_ss + IpCa + ICab + ICaL + Ito + IKr + IKs + IK1 + IKb + ICaK + i_f + i_K1_ishi + i_no_ion           
+            d_V_li = self.membrane.d_V( I_ion + self.stimulus.I )
+            
+            if self.current_response_info:  # 'INa', 'INaL', 'Ito', 'ICaL', 'IKr', 'IKs', 'IK1'
+                current_timestep = [                
+                    mod_trace.Current(name='I_Na', value=INa),
+                    mod_trace.Current(name='I_NaL', value=INaL),                
+                    mod_trace.Current(name='I_To', value=Ito),
+                    mod_trace.Current(name='I_CaL', value=ICaL),
+                    mod_trace.Current(name='I_CaNa', value=ICaNa),
+                    mod_trace.Current(name='I_CaK', value=ICaK),
+                    mod_trace.Current(name='I_Kr', value=IKr),
+                    mod_trace.Current(name='I_Ks', value=IKs),
+                    mod_trace.Current(name='I_K1', value=IK1),
+                    mod_trace.Current(name='I_NaCa', value=INaCa),
+                    mod_trace.Current(name='I_NaCa_ss', value=INaCa_ss),
+                    mod_trace.Current(name='I_NaK', value=INaK),
+                    mod_trace.Current(name='I_Kb', value=IKb),
+                    mod_trace.Current(name='I_Nab', value=INab),
+                    mod_trace.Current(name='I_Cab', value=ICab),
+                    mod_trace.Current(name='I_pCa', value=IpCa),    
+                    mod_trace.Current(name='I_F', value=i_f),
+                    mod_trace.Current(name='I_up', value=i_up),     
+                    mod_trace.Current(name='I_leak', value=i_leak),
+                    mod_trace.Current(name='I_no_ion', value=i_no_ion),
+                    mod_trace.Current(name='I_stim', value=-self.stimulus.I)   
+
+                    # trace.Current(name='I_bNa', value=i_b_Na),
+                    # trace.Current(name='I_bCa', value=i_b_Ca),
+                    # trace.Current(name='I_CaT', value=i_CaT),
+                                                            
+                ]
+                self.current_response_info.currents.append(current_timestep)
+                
+                
+            return d_V_li + d_sodium_li + d_potassium_li + d_calcium_li + \
+                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
+                            d_ryr_li + d_CaMKt_li
+
+
+
+
+
+
     
     def response_diff_eq(self, t, y):
         
         if isinstance(self.protocol, protocol_lib.PacingProtocol)  :                      
             face = self.protocol.pacing(t)
             self.stimulus.cal_stimulation(face) # Stimulus    
-        else:                         
-            y[0] = self.protocol.get_voltage_at_time(t)
+        else:              
+            if self.is_exp_artefact:
+                y[-2] = self.protocol.get_voltage_at_time(t)
+            else:
+                y[0] = self.protocol.get_voltage_at_time(t)
                     
         return self.differential_eq(t, y)
 
@@ -1185,7 +1438,76 @@ class ORD2011():
         
     def diff_eq_odeint(self, y, t, *p):
         return self.response_diff_eq(t, y)
-   
+
+
+
+    def change_cell(self, mode):
+        self.cell.mode = mode
+        
+        if self.cell.mode == 0:     # Endocarial
+            self.ina.GNa = 75.0   
+            self.inal.GNaL = 0.0075  
+            self.ito.Gto = 0.02
+            self.ical.PCa = 0.0001  
+            self.ikr.GKr = 0.046
+            self.iks.GKs = 0.0034
+            self.ik1.GK1 = 0.1908
+            self.inaca.Gncx = 0.0008
+            self.inak.Pnak = 30
+            self.ikb.GKb = 0.003
+            self.inab.PNab = 3.75e-10
+            self.icab.PCab = 2.5e-8
+            self.ipca.GpCa = 0.0005
+
+        elif self.cell.mode == 1:   # Epicardial 
+            self.ina.GNa = 75.0   
+            self.inal.GNaL = 0.0075*0.6   
+            self.ito.Gto = 0.02*4
+            self.ical.PCa = 0.0001*1.2  
+            self.ikr.GKr = 0.046*1.3  
+            self.iks.GKs = 0.0034*1.4
+            self.ik1.GK1 = 0.1908*1.2
+            self.inaca.Gncx = 0.0008 *1.1
+            self.inak.Pnak = 30*0.9
+            self.ikb.GKb = 0.003*0.6
+            self.inab.PNab = 3.75e-10
+            self.icab.PCab = 2.5e-8
+            self.ipca.GpCa = 0.0005
+
+        elif self.cell.mode == 2:   # Mid-myocardial
+            self.ina.GNa = 75.0   
+            self.inal.GNaL = 0.0075
+            self.ito.Gto = 0.02*4
+            self.ical.PCa = 0.0001*2.5
+            self.ikr.GKr = 0.046*0.8 
+            self.iks.GKs = 0.0034
+            self.ik1.GK1 = 0.1908*1.3
+            self.inaca.Gncx = 0.0008 *1.4
+            self.inak.Pnak = 30*0.7
+            self.ikb.GKb = 0.003
+            self.inab.PNab = 3.75e-10
+            self.icab.PCab = 2.5e-8
+            self.ipca.GpCa = 0.0005
+
+            # self.ina.G_adj = 1   
+            # self.inal.G_adj = 1
+            # self.ito.G_adj = 1
+            # self.ical.G_adj = 1
+            # self.ikr.G_adj = 1
+            # self.iks.G_adj = 1
+            # self.ik1.G_adj = 1
+            # self.inaca.G_adj = 1
+            # self.inak.G_adj = 1
+            # self.ikb.G_adj = 1
+            # self.inab.G_adj = 1
+            # self.icab.G_adj = 1
+            # self.ipca.G_adj = 1
+
+        
+        
+       
+
+
 
 
 
