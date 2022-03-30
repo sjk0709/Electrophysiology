@@ -469,7 +469,7 @@ class VCOptimizationIndividual(Individual):
             i_trace = model_response.get_model_response_JK( BR1977(self.protocol), self.protocol, prestep=prestep )
             scale = 1            
         elif config.model_name == 'ORD2011':                                       
-            i_trace = model_response.get_model_response_JK( ORD2011(self.protocol), self.protocol, prestep=prestep )
+            i_trace = model_response.get_model_response_JK( ORD2011(self.protocol, is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep )
             scale = 1                        
         elif config.model_name == 'OHara2017':                                  
             # m_myokit, _, _ = myokit.load( config.mmt_file )                                                                  

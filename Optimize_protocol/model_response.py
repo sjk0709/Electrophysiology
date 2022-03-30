@@ -73,12 +73,18 @@ def get_model_response_JK( model, protocol, prestep=None):
             simulator.pre_simulate( protocol='constant', pre_step=prestep, v0=-80)  
 
     sol = simulator.simulate( [0, protocol.get_voltage_change_endpoints()[-1]], method='BDF', max_step=1, atol=1e-06, rtol=1e-6)     
+    
     command_voltages = [protocol.get_voltage_at_time(t) for t in sol.t]    
+
+    if model.is_exp_artefact:
+        y_voltages = sol.y[0, :]
+    else:
+        y_voltages = command_voltages
 
     tr = trace.Trace(protocol,
                      cell_params=None,
                      t=sol.t,
-                     y=command_voltages,  # simulator.model.V,
+                     y=y_voltages, 
                      command_voltages=command_voltages,
                      current_response_info=simulator.model.current_response_info,
                      default_unit=None)        

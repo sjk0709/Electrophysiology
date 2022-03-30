@@ -634,6 +634,47 @@ class IK1():
         IK1 = self.GK1*self.G_adj * sqrt(self.extra.Ko) * rk1 * xk1 * (V - nernst.EK)  # Inward rectifier Potassium current
             
         return [d_xk1], IK1
+
+
+class IFunny():
+    '''
+    '''
+    def __init__(self, phys, cell, extra):    
+        self.phys = phys
+        self.cell = cell
+        self.extra = extra      
+        
+        # initial values            
+        self.Xf = 6.403385049126155e-03
+        
+        self.y0 = [self.Xf]
+
+        #: Maximum conductance
+        self.G_F = 0.0435 #[nS/pF]  # 'Endocardial' : GK1_b = 0.1908  ,   'Epicardial' : GK1_b * 1.2 'Mid-myocardial' : GK1_b * 1.3  
+        self.G_adj = 1.0
+                    
+    def diff_eq(self, V, Xf, camk, nernst):
+                
+        xF1 = 5.7897e-7 #[1/ms]            
+        xF2 = -14.5897121702 #[mV]            
+        xF5 = 20086.6502378844
+        xF6 = 10.20235284528 #[mV]            
+        xF_const = 23.94529134653 #[ms]            
+        xF3 = xF5 * xF1     #  in [1/ms]
+        xF4 = 1 / (1 / xF2 + 1 / xF6)  #  in [mV]
+        a = xF1 * exp(V / xF2) #    in [1/ms]
+        b = xF3 * exp(V / xF4) #    in [1/ms]
+        inf = a / (a + b)
+        tau = 1 / (a + b) + xF_const   #  in [ms]
+        d_Xf = (inf - Xf) / tau  # desc: inactivation in i_f            
+        NatoK_ratio = .491 # desc: Verkerk et al. 2013
+        Na_frac = NatoK_ratio / (NatoK_ratio + 1)
+        i_fNa = Na_frac * self.G_F*self.G_adj * Xf * (V - nernst.ENa) # in [A/F]
+        i_fK = (1 - Na_frac) * self.G_F*self.G_adj * Xf * (V - nernst.EK) # in [A/F]
+        i_f = i_fNa + i_fK   # in [A/F]
+            
+        return [d_Xf], i_f, i_fNa, i_fK
+
     
     
 class INaCa():
@@ -1005,10 +1046,10 @@ class Sodium():
         self.y0 = [self.Nai, self.Na_ss]
 
     def diff_eq(self, Nai : float, Na_ss : float, 
-                INa, INaL, INaCa, INaK, INab, ICaNa, INaCa_ss, 
+                INa, INaL, INaCa, INaK, INab, ICaNa, INaCa_ss, IFNa,
                 diff): 
         cm = 1.0
-        INa_tot    = INa + INaL + INab + 3*INaCa + 3*INaK
+        INa_tot    = INa + INaL + INab + 3*INaCa + 3*INaK + IFNa
         d_Nai   = -INa_tot * self.cell.AF * cm / self.cell.vmyo + diff.JdiffNa * self.cell.vss / self.cell.vmyo # Intracellular Potassium concentration
        
         INa_ss_tot = ICaNa + 3*INaCa_ss
@@ -1033,11 +1074,11 @@ class Potassium():
         self.y0 = [self.Ki, self.K_ss]
 
     def diff_eq(self, Ki, K_ss, 
-                Ito, IKr, IKs, IK1, IKb, INaK, i_stim, ICaK,
+                Ito, IKr, IKs, IK1, IKb, INaK, i_stim, ICaK, IFK,
                 diff):
         cm = 1.0
 
-        IK_tot = Ito + IKr + IKs + IK1 + IKb - 2 * INaK        
+        IK_tot = Ito + IKr + IKs + IK1 + IKb - 2 * INaK + IFK       
         d_Ki  = -(IK_tot + i_stim) * cm * self.cell.AF / self.cell.vmyo + diff.JdiffK * self.cell.vss / self.cell.vmyo # Intracellular Potassium concentration
         
         IK_ss_tot = ICaK
@@ -1148,6 +1189,7 @@ class ORD2011():
         self.ikr = IKr(self.phys, self.cell, self.extra)
         self.iks = IKs(self.phys, self.cell, self.extra)
         self.ik1 = IK1(self.phys, self.cell, self.extra)
+        self.ifunny = IFunny(self.phys, self.cell, self.extra)
         
         self.inaca = INaCa(self.phys, self.cell, self.extra)
         self.inacass = INaCa_ss(self.phys, self.cell, self.extra)
@@ -1166,7 +1208,7 @@ class ORD2011():
         self.calcium = Calcium(self.phys, self.cell, self.extra)
 
         self.y0 = self.membrane.y0 + self.sodium.y0 + self.potassium.y0 + self.calcium.y0 +\
-                    self.ina.y0 + self.inal.y0 + self.ito.y0 + self.ical.y0 + self.ikr.y0 + self.iks.y0 + self.ik1.y0 +\
+                    self.ina.y0 + self.inal.y0 + self.ito.y0 + self.ical.y0 + self.ikr.y0 + self.iks.y0 + self.ik1.y0 + self.ifunny.y0 +\
                         self.ryr.y0 + self.camk.y0
         if self.is_exp_artefact:
             self.y0 += [0, 0, 0 ,0, 0]
@@ -1187,9 +1229,10 @@ class ORD2011():
                             xf, xs,\
                                 xs1, xs2, \
                                     xk1, \
-                                        Jrelnp, Jrelp, CaMKt = y[:41]
+                                        Xf, \
+                                            Jrelnp, Jrelp, CaMKt = y[:42]
         if self.is_exp_artefact:
-            v_p, v_clamp, i_out, v_cmd, v_est = y[41:]
+            v_p, v_clamp, i_out, v_cmd, v_est = y[42:]
 
         # Calculate Nernst  
         self.nernst.calculate(Nai, Ki)        
@@ -1205,6 +1248,7 @@ class ORD2011():
         d_IKr_li, IKr = self.ikr.diff_eq(V, xf, xs, self.camk, self.nernst)
         d_IKs_li, IKs = self.iks.diff_eq(V, xs1, xs2, Cai, self.camk, self.nernst) 
         d_IK1_li, IK1 = self.ik1.diff_eq(V, xk1, self.camk, self.nernst) 
+        d_IF_li, i_f, i_fNa, i_fK = self.ifunny.diff_eq(V, xk1, self.camk, self.nernst) 
         # print(t, IK1)
         INaCa = self.inaca.calculate(V, Nai, Cai)
         INaCa_ss = self.inacass.calculate(Na_ss, cass, self.inaca)
@@ -1220,11 +1264,11 @@ class ORD2011():
         self.serca.calculate(Cai, Ca_nsr, Ca_jsr, self.camk)        
         
         d_sodium_li = self.sodium.diff_eq( Nai, Na_ss, 
-                                           INa, INaL, INaCa, INaK, INab, ICaNa, INaCa_ss,
+                                           INa, INaL, INaCa, INaK, INab, ICaNa, INaCa_ss, i_fNa,
                                            self.diff)
 
         d_potassium_li = self.potassium.diff_eq(Ki, K_ss, 
-                                                Ito, IKr, IKs, IK1, IKb, INaK, self.stimulus.I, ICaK,
+                                                Ito, IKr, IKs, IK1, IKb, INaK, self.stimulus.I, ICaK, i_fK,
                                                 self.diff)
 
         d_calcium_li = self.calcium.diff_eq(Cai, cass, Ca_nsr, Ca_jsr, 
@@ -1232,9 +1276,7 @@ class ORD2011():
                                             self.ryr, self.serca, self.diff)   
        
         # Membrane potential       
-                            
-
-        i_f = 0
+        
         i_K1_ishi = 0
         i_up = 0
         i_leak = 0
@@ -1367,7 +1409,7 @@ class ORD2011():
                 self.current_response_info.currents.append(current_timestep)
 
             return [d_V] + d_sodium_li + d_potassium_li + d_calcium_li + \
-                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
+                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + d_IF_li +\
                             d_ryr_li + d_CaMKt_li + [dvp_dt, dvclamp_dt, di_out_dt, dvcmd_dt, dvest_dt]
 
         # --------------------------------------------------------------------
@@ -1410,7 +1452,7 @@ class ORD2011():
                 
                 
             return d_V_li + d_sodium_li + d_potassium_li + d_calcium_li + \
-                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
+                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + d_IF_li +\
                             d_ryr_li + d_CaMKt_li
 
 
