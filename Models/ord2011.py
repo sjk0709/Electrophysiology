@@ -1248,7 +1248,12 @@ class ORD2011():
         d_IKr_li, IKr = self.ikr.diff_eq(V, xf, xs, self.camk, self.nernst)
         d_IKs_li, IKs = self.iks.diff_eq(V, xs1, xs2, Cai, self.camk, self.nernst) 
         d_IK1_li, IK1 = self.ik1.diff_eq(V, xk1, self.camk, self.nernst) 
-        d_IF_li, i_f, i_fNa, i_fK = self.ifunny.diff_eq(V, xk1, self.camk, self.nernst) 
+        d_IF_li, i_f, i_fNa, i_fK = self.ifunny.diff_eq(V, Xf, self.camk, self.nernst) 
+
+        i_f = 0             #################################3
+        i_fNa = 0           #################################3
+        i_fK = 0            #################################3
+
         # print(t, IK1)
         INaCa = self.inaca.calculate(V, Nai, Cai)
         INaCa_ss = self.inacass.calculate(Na_ss, cass, self.inaca)
@@ -1449,8 +1454,7 @@ class ORD2011():
                                                             
                 ]
                 self.current_response_info.currents.append(current_timestep)
-                
-                
+                            
             return d_V_li + d_sodium_li + d_potassium_li + d_calcium_li + \
                         d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + d_IF_li +\
                             d_ryr_li + d_CaMKt_li
