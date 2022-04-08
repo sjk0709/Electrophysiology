@@ -424,7 +424,7 @@ class ICaL():
         self.y0 = [self.d, self.ff, self.fs, self.fcaf, self.fcas, self.jca, self.nca, self.ffp, self.fcafp]
 
         #: Maximum conductance
-        self.PCa = 0.0001*2.5   # 'Endocardial' : PCa_b(0.0001) ,   'Epicardial' : PCa_b*1.2  'Mid-myocardial' : PCa_b*2.5
+        self.PCa = 0.0001   # 'Endocardial' : PCa_b(0.0001) ,   'Epicardial' : PCa_b*1.2  'Mid-myocardial' : PCa_b*2.5
         self.G_adj = 1.0
                       
     def diff_eq(self, V, 
@@ -542,7 +542,7 @@ class IKr():
         self.y0 = [self.xf, self.xs]
 
         #: Maximum conductance
-        self.GKr = 0.046*1.3   # 'Endocardial' : base = 0.046 ,   'Epicardial' : 1.3*base 'Mid-myocardial' : 0.8*base  
+        self.GKr = 0.046   # 'Endocardial' : base = 0.046 ,   'Epicardial' : 1.3*base 'Mid-myocardial' : 0.8*base  
         self.G_adj = 1.0
          
             
@@ -582,7 +582,7 @@ class IKs():
         self.y0 = [self.xs1, self.xs2]
 
         #: Maximum conductance
-        self.GKs = 0.0034*1.4   # 'Endocardial' : GKs_b = 0.0034 ,   'Epicardial' : GKs_b * 1.4  'Mid-myocardial' : GKs_b
+        self.GKs = 0.0034   # 'Endocardial' : GKs_b = 0.0034 ,   'Epicardial' : GKs_b * 1.4  'Mid-myocardial' : GKs_b
         self.G_adj = 1.0
                     
     def diff_eq(self, V, xs1, xs2, Cai, camk, nernst):
@@ -688,7 +688,7 @@ class INaCa():
         self.extra = extra    
 
         #: Maximum conductance
-        self.Gncx = 0.0008 * 1.4   # 'Endocardial' : 0.0008  ,   'Epicardial' : 0.0008 * 1.1   'Mid-myocardial' : 0.0008 * 1.4
+        self.Gncx = 0.0008   # 'Endocardial' : 0.0008  ,   'Epicardial' : 0.0008 * 1.1   'Mid-myocardial' : 0.0008 * 1.4
         self.G_adj = 1.0
                      
     def calculate(self, V, Nai, Cai):
@@ -1208,8 +1208,9 @@ class ORD2011():
         self.calcium = Calcium(self.phys, self.cell, self.extra)
 
         self.y0 = self.membrane.y0 + self.sodium.y0 + self.potassium.y0 + self.calcium.y0 +\
-                    self.ina.y0 + self.inal.y0 + self.ito.y0 + self.ical.y0 + self.ikr.y0 + self.iks.y0 + self.ik1.y0 + self.ifunny.y0 +\
-                        self.ryr.y0 + self.camk.y0
+                    self.ina.y0 + self.inal.y0 + self.ito.y0 + self.ical.y0 + self.ikr.y0 + self.iks.y0 + self.ik1.y0 +\
+                        self.ryr.y0 + self.camk.y0 +\
+                            self.ifunny.y0 
         if self.is_exp_artefact:
             self.y0 += [0, 0, 0 ,0, 0]
                             
@@ -1229,8 +1230,8 @@ class ORD2011():
                             xf, xs,\
                                 xs1, xs2, \
                                     xk1, \
-                                        Xf, \
-                                            Jrelnp, Jrelp, CaMKt = y[:42]
+                                        Jrelnp, Jrelp, CaMKt, \
+                                            Xf = y[:42]
         if self.is_exp_artefact:
             v_p, v_clamp, i_out, v_cmd, v_est = y[42:]
 
@@ -1414,8 +1415,9 @@ class ORD2011():
                 self.current_response_info.currents.append(current_timestep)
 
             return [d_V] + d_sodium_li + d_potassium_li + d_calcium_li + \
-                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + d_IF_li +\
-                            d_ryr_li + d_CaMKt_li + [dvp_dt, dvclamp_dt, di_out_dt, dvcmd_dt, dvest_dt]
+                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
+                            d_ryr_li + d_CaMKt_li + \
+                                d_IF_li + [dvp_dt, dvclamp_dt, di_out_dt, dvcmd_dt, dvest_dt]
 
         # --------------------------------------------------------------------
         # Calculate change in Voltage and Save currents
@@ -1456,8 +1458,9 @@ class ORD2011():
                 self.current_response_info.currents.append(current_timestep)
                             
             return d_V_li + d_sodium_li + d_potassium_li + d_calcium_li + \
-                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + d_IF_li +\
-                            d_ryr_li + d_CaMKt_li
+                        d_INa_li + d_INaL_li + d_Ito_li + d_ICaL_li + d_IKr_li + d_IKs_li + d_IK1_li + \
+                            d_ryr_li + d_CaMKt_li + \
+                                d_IF_li
 
 
 
@@ -1494,8 +1497,8 @@ class ORD2011():
             self.ina.GNa = 75.0   
             self.inal.GNaL = 0.0075  
             self.ito.Gto = 0.02
-            self.ical.PCa = 0.0001  
-            self.ikr.GKr = 0.046
+            self.ical.PCa = 0.0001  # 1.007 in 2017
+            self.ikr.GKr = 0.046    # 4.65854545454545618e-2 [mS/uF] in 2007
             self.iks.GKs = 0.0034
             self.ik1.GK1 = 0.1908
             self.inaca.Gncx = 0.0008
@@ -1535,19 +1538,21 @@ class ORD2011():
             self.icab.PCab = 2.5e-8
             self.ipca.GpCa = 0.0005
 
-            # self.ina.G_adj = 1   
-            # self.inal.G_adj = 1
-            # self.ito.G_adj = 1
-            # self.ical.G_adj = 1
-            # self.ikr.G_adj = 1
-            # self.iks.G_adj = 1
-            # self.ik1.G_adj = 1
-            # self.inaca.G_adj = 1
-            # self.inak.G_adj = 1
-            # self.ikb.G_adj = 1
-            # self.inab.G_adj = 1
-            # self.icab.G_adj = 1
-            # self.ipca.G_adj = 1
+        elif self.cell.mode == 3:   # Max
+            f = 1.5
+            self.ina.GNa = 75.0 * f   
+            self.inal.GNaL = 0.0075 * f
+            self.ito.Gto = 0.02*4 * f
+            self.ical.PCa = 0.0001*2.5 * f
+            self.ikr.GKr = 0.046*1.3 * f
+            self.iks.GKs = 0.0034*1.4 * f
+            self.ik1.GK1 = 0.1908*1.3 * f
+            self.inaca.Gncx = 0.0008 *1.4 
+            self.inak.Pnak = 30 
+            self.ikb.GKb = 0.003 
+            self.inab.PNab = 3.75e-10
+            self.icab.PCab = 2.5e-8 
+            self.ipca.GpCa = 0.0005       
 
         
         
