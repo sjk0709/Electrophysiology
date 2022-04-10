@@ -198,10 +198,10 @@ class Nernst():
         self.cell = cell
         self.extra = extra  
             
-    def calculate(self, Nai, Ki):
-        PKNa = 0.01833          # desc: Permeability ratio K+ to Na+
+    def calculate(self, Nai, Ki):        
         self.ENa = self.phys.RTF * log(self.extra.Nao / Nai)      # in [mV]  desc: Reversal potential for Sodium currents
         self.EK = self.phys.RTF * log(self.extra.Ko / Ki)      # in [mV]  desc: Reversal potential for Potassium currents                
+        PKNa = 0.01833          # desc: Permeability ratio K+ to Na+
         self.EKs = self.phys.RTF * log((self.extra.Ko + PKNa * self.extra.Nao) / (Ki + PKNa * Nai)) # desc: Reversal potential for IKs  in [mV]
 
 
@@ -238,31 +238,24 @@ class INa():
     def diff_eq(self, V, m, hf, hs, j, hsp, jp, camk, nernst):
         '''
         Activation gate for INa channels
-        '''
-        mtD1 = 6.765
-        mtD2 = 8.552
-        mtV1 = 11.64
-        mtV2 = 34.77
-        mtV3 = 77.42
-        mtV4 = 5.955            
-        self.tm  = 1.0 / (mtD1 * exp((V + mtV1) / mtV2) + mtD2 * exp(-(V + mtV3) / mtV4)) # desc: Time constant for m-gate   in [ms]
-        mssV1 = 39.57
-        mssV2 = 9.871
-        mss  = 1.0 / (1.0 + exp(-(V + mssV1)/mssV2))  # desc: Steady state value for m-gate         
+        '''     
+        # m-gates             
+        self.tm  = 1.0 / (6.765 * exp((V + 11.64) / 34.77) + 8.552 * exp(-(V + 77.42) / 5.955)) # desc: Time constant for m-gate   in [ms]        
+        mss  = 1.0 / (1.0 + exp(-(V + 39.57)/9.871))  # desc: Steady state value for m-gate         
         d_m = (mss - m) / self.tm           
 
-        hssV1 = 82.9 
-        hssV2 = 6.086 
+        # h-gates        
         shift_INa_inact = 0.0
-        hss = 1.0 / (1.0 + exp((V + hssV1-shift_INa_inact) / hssV2))   # desc: Steady-state value for h-gate
+        hss = 1.0 / (1.0 + exp((V + 82.9-shift_INa_inact) / 6.086))   # desc: Steady-state value for h-gate
         thf = 1.0 / (1.432e-5 * exp(-(V + 1.196 - shift_INa_inact) / 6.285) + 6.1490 * exp((V + 0.5096 - shift_INa_inact) / 20.27)) # desc: Time constant for fast development of inactivation in INa   in [ms]
         ths = 1.0 / (0.009794 * exp(-(V + 17.95-shift_INa_inact) / 28.05) + 0.3343 * exp((V + 5.7300 - shift_INa_inact) / 56.66))  # desc: Time constant for slow development of inactivation in INa  in [ms]
         Ahf = 0.99 # : Fraction of INa channels with fast inactivation
         Ahs = 1.0 - Ahf # : Fraction of INa channels with slow inactivation        
         d_hf = (hss - hf) / thf   # desc: Fast componennt of the inactivation gate for INa channels
         d_hs = (hss - hs) / ths   # desc: Slow componennt of the inactivation gate for non-phosphorylated INa channels
-        
         h = Ahf * hf + Ahs * hs   # desc: Inactivation gate for INa
+        
+        # j-gates
         tj = 2.038 + 1 / (0.02136 * exp(-(V + 100.6 - shift_INa_inact) / 8.281) + 0.3052 * exp((V + 0.9941 - shift_INa_inact) / 38.45)) # desc: Time constant for j-gate in INa in [ms]
         jss = hss  # desc: Steady-state value for j-gate in INa
         d_j = (jss - j) / tj # desc: Recovery from inactivation gate for non-phosphorylated INa channels
