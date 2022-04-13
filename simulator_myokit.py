@@ -73,6 +73,7 @@ class Simulator:
         self.simulation = myokit.Simulation(model, protocol)
         self.simulation.set_tolerance(abs_tol=self.abs_tol, rel_tol=self.rel_tol)  # 1e-12, 1e-14  # 1e-08 and rel_tol ¼ 1e-10
         self.simulation.set_max_step_size(self.max_step)
+        # self.simulation.set_min_step_size(dtmin=0.000000000001)
         self.init_state = self.simulation.state()
         # self.simulation.set_protocol( protocol )
 

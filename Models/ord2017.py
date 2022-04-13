@@ -739,7 +739,7 @@ class IK1():
         self.y0 = [self.xk1]
 
         #: Maximum conductance
-        self.GK1 = 0.1908*1.3   # 'Endocardial' : GK1_b = 0.1908  ,   'Epicardial' : GK1_b * 1.2 'Mid-myocardial' : GK1_b * 1.3  
+        self.GK1 = 0.1908*1.698   # 'Endocardial' : GK1_b = 0.1908  ,   'Epicardial' : GK1_b * 1.2 'Mid-myocardial' : GK1_b * 1.3  
         self.G_adj = 1.0
                     
     def diff_eq(self, V, xk1, camk, nernst):
@@ -1695,19 +1695,19 @@ class ORD2017():
 
         elif self.cell.mode == 3:   # Max
             f = 1.5
-            self.ina.GNa = 75.0 * f  
-            self.inal.GNaL = 0.0075 * 2.661 * f  
+            self.ina.GNa = 75.0 * 1 * f  
+            self.inal.GNaL = 0.0075 * 2.661 * 1 * f  
             self.ito.Gto = 0.02 * 4 * f
-            self.ical.PCa = 0.0001 * 2.5 * 1.007 * f  
+            self.ical.PCa = 0.0001 * 1.007 * 2.5 * f  
             self.ikr.GKr = 4.65854545454545618e-2 * 1.3 * f
-            self.iks.GKs = 0.0034 * 1.4 * 1.87 * f
+            self.iks.GKs = 0.0034 * 1.87 * 1.4 * f
             self.ik1.GK1 = 0.1908 * 1.698 * 1.3 * f
             self.inaca.Gncx = 0.0008 * 1.4
-            self.inak.Pnak = 30
-            self.ikb.GKb = 0.003
-            self.inab.PNab = 3.75e-10
-            self.icab.PCab = 2.5e-8
-            self.ipca.GpCa = 0.0005   
+            self.inak.Pnak = 30 * 1
+            self.ikb.GKb = 0.003 * 1
+            self.inab.PNab = 3.75e-10 * 1
+            self.icab.PCab = 2.5e-8 * 1
+            self.ipca.GpCa = 0.0005 * 1    
 
             self.ina.G_adj = 1  
             self.inal.G_adj = 1
