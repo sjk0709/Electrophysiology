@@ -113,6 +113,20 @@ pace = 0 bind pace
 V = engine.pace
     desc: membane potential
     in [mV]
+i_ion = (
+        + sodium.INa_tot
+        + sodium.INa_ss_tot
+        + calcium.ICa_tot
+        + calcium.ICa_ss_tot
+        + potassium.IK_tot
+        + potassium.IK_ss_tot
+        )
+    label cellular_current
+    in [A/F]
+#dot(V) = -(i_ion + stimulus.i_stim)
+#    label membrane_potential
+#    in [mV]
+
 
 #
 # Stimulus current
@@ -383,8 +397,8 @@ Ito = fto * gto * (V - rev.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip)
 use membrane.V
 use extra.Ca_o, extra.K_o, extra.Na_o
 use calcium.Ca_ss, potassium.K_ss, sodium.Na_ss
-vf = V * phys.FRT
-vff = V * phys.FFRT
+vfrt = V * phys.FRT
+vffrt = V * phys.FFRT
     in [C/mol]
 # Activation
 sd = 1 / (1 + exp((V + 3.94 [mV]) / -4.23 [mV]))
@@ -462,12 +476,19 @@ dot(nca) = anca * k2n - nca * km2n
         in [1/ms]
     anca = 1 / (k2n / km2n + (1 + Kmn / Ca_ss)^4)
 # Total currents through L-type calcium channels
-PhiCaL = if(vf == 0, 1 [C/mol] * 4 * (Ca_ss - 0.341 * Ca_o), 4 * vff * (Ca_ss * exp(2 * vf) - 0.341 * Ca_o) / (exp(2 * vf) - 1))
-    in [mC/L]
-PhiCaNa = if(vf == 0, 1 [C/mol] * 1 * (0.75 * Na_ss - 0.75 * Na_o),  1 * vff * (0.75 * Na_ss * exp(1 * vf) - 0.75 * Na_o) / (exp(1 * vf) - 1))
-    in [mC/L]
-PhiCaK = if(vf == 0, 1 [C/mol] * 1 * (0.75 * K_ss - 0.75 * K_o), 1 * vff * (0.75 * K_ss * exp(1 * vf) - 0.75 * K_o) / (exp(1 * vf) - 1))
-    in [mC/L]
+v0 = 0
+B_1 = 2.0 * phys.FRT
+A_1 = ( 4.0 * phys.FFRT * (calcium.Ca_ss * exp(2 * vfrt) - 0.341 * extra.Ca_o) ) / B_1
+U_1 = B_1 * (V-v0)
+PhiCaL = if(-1e-7<=U_1 and U_1<=1e-7, A_1 * (1.0-0.5*U_1), (A_1*U_1)/(exp(U_1)-1.0)) 
+B_2 = phys.FRT
+A_2 = ( 0.75 * phys.FFRT * (sodium.Na_ss * exp(vfrt) - extra.Na_o) ) / B_2
+U_2 = B_2 * (V-v0)
+PhiCaNa = if(-1e-7<=U_2 and U_2<=1e-7, A_2 * (1.0-0.5*U_2), (A_2*U_2)/(exp(U_2)-1.0)) 
+B_3 = phys.FRT
+A_3 = ( 0.75 * phys.FFRT * (potassium.K_ss * exp(vfrt) - extra.K_o) ) / B_3
+U_3 = B_3 * (V-v0)
+PhiCaK = if(-1e-7<=U_3 and U_3<=1e-7, A_3 * (1.0-0.5*U_3), (A_3*U_3)/(exp(U_3)-1.0)) 
 base = 0.0001 [L/ms/F]
     in [L/ms/F]
 PCa = base * piecewise(cell.mode == 0, 1, cell.mode == 1, 1.2, 2.5) * 1.007
@@ -926,31 +947,37 @@ IKb = fKb * gKb * xkb * (V - rev.EK)
     desc: Background Potassium current
     in [A/F]
 
-#
+
 # INab: Background sodium current
 # Page 15 of the appendix to [2]
 #
 [inab]
 use membrane.V
-PNab = 3.75e-10 [L/ms/F]
-    in [L/ms/F]
-INab = PNab * V * phys.FFRT * (sodium.Na_i * evf - extra.Na_o) / (evf - 1)
-    in [A/F]
-    evf = exp(V * phys.FRT)
+B = phys.FRT
+v0 = 0
+g_adj = 1.0
+PNab = 3.75e-10
+A = g_adj * PNab * phys.FFRT * (sodium.Na_i * exp(V * phys.FRT) - extra.Na_o) / B    
+U = B * (V - v0)
+INab = if(-1e-7<=U and U<=1e-7, A * (1.0 - 0.5*U), (A*U)/(exp(U)-1.0))
     desc: Background Sodium current
+    in [uA/uF]
 
 #
-# ICab: Background calcium current
-# Page 15 of the appendix to [2]
+# ICab :: Background Calcium current
+# Page 15
 #
 [icab]
 use membrane.V
-PCab = 2.5e-8 [L/ms/F]
-    in [L/ms/F]
-ICab = PCab * 4 * V * phys.FFRT * (calcium.Ca_i * evf2 - 0.341 * extra.Ca_o) / (evf2 - 1)
-    in [A/F]
-    evf2 = exp(2 * V * phys.FRT)
+B = 2 * phys.FRT
+v0 = 0
+g_adj = 1.0
+PCab = 2.5e-8
+A = g_adj * PCab * 4.0 * phys.FFRT * (calcium.Ca_i * exp( 2.0 * V * phys.FRT) - 0.341 * extra.Ca_o) / B    
+U = B * (V - v0)
+ICab = if(-1e-7<=U and U<=1e-7, A * (1.0 - 0.5*U), (A*U)/(exp(U)-1.0))
     desc: Background Calcium current
+    in [uA/uF]
 
 #
 # IpCa: Sarcolemmal calcium pump current

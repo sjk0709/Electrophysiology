@@ -117,11 +117,8 @@ simType = 0   # AP=0 | VC=1
 # Page 5 of the appendix to [2]
 #
 [membrane]
-Vc = engine.pace
+VC = engine.pace
     desc: membane potential
-    in [mV]
-dot(V) = -(i_ion + stimulus.i_stim)
-    label membrane_potential
     in [mV]
 i_ion = (
         + sodium.INa_tot
@@ -133,6 +130,11 @@ i_ion = (
         )
     label cellular_current
     in [A/F]
+dot(V) = -(i_ion + stimulus.i_stim)
+    label membrane_potential
+    in [mV]
+
+
 
 #
 # Stimulus current
@@ -238,7 +240,7 @@ EKs = phys.RTF * log((extra.K_o + PNaK * extra.Na_o) / (potassium.K_i + PNaK * s
 # phosphorylated channels.
 #
 [ina]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 # m-gates
 sm = 1 / (1 + exp((V + 39.57 [mV]) / -9.871 [mV]))
     desc: Steady state value for m-gates
@@ -301,7 +303,7 @@ INa = g_adj * gNa * (V - rev.ENa) * m^3 * ((1 - camk.f) * h * j + camk.f * hp * 
 #
 [inal]
 use ina.tm
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 sm = 1 / (1 + exp((V + 42.85 [mV]) / -5.264 [mV]))
     desc: Steady state value of m-gate for INaL
 dot(m) = (sm - m) / tm
@@ -332,7 +334,7 @@ INaL = g_adj * gNaL * (V - rev.ENa) * m * ((1 - camk.f) * h + camk.f * hp)
 # page 8 of the appendix to [2]
 #
 [ito]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 ta = 1.0515 [ms] / (one + two)
     one = 1 / (1.2089 * (1 + exp((V - 18.4099 [mV]) / -29.3814 [mV])))
     two = 3.5 / (1 + exp((V + 100 [mV]) / 29.3814 [mV]))
@@ -402,7 +404,7 @@ Ito = g_adj * gto * (V - rev.EK) * ((1 - camk.f) * a * i + camk.f * ap * ip)
 [ical]
 use extra.Ca_o, extra.K_o, extra.Na_o
 use calcium.Ca_ss, potassium.K_ss, sodium.Na_ss
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 vfrt = V * phys.FRT
 vffrt = V * phys.FFRT
     in [C/mol]
@@ -530,7 +532,7 @@ ICaL_total = ICaL + ICaK + ICaNa
 # Described in [1,4].
 #
 [ikr]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 A1 = 0.0264 [mS/uF]
     in [mS/uF]
 A11 = 0.0007868 [mS/uF]
@@ -635,7 +637,7 @@ IKr = g_adj * gKr * sqrt(extra.K_o / 5.4 [mM]) * O * (V - rev.EK)
 # Modelled with two activation gates
 #
 [iks]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 sx = 1 / (1 + exp((V + 11.6 [mV]) / -8.932 [mV]))
     desc: Steady-state value for activation of IKs
 dot(x1) = (sx - x1) / tau
@@ -664,7 +666,7 @@ IKs = g_adj * gKs * KsCa * x1 * x2 * (V - rev.EKs)
 #
 [ik1]
 use extra.K_o
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 dot(x) = (inf - x) / tau
     desc: Activation of IK1
     inf = 1 / (1 + exp(-(V + 2.5538 [mV/mM] * K_o + 144.59 [mV]) / (1.5692 [mV/mM] * K_o + 3.8115 [mV])))
@@ -689,7 +691,7 @@ IK1 = g_adj * gK1 * sqrt(K_o / 1 [mM]) * r * x * (V - rev.EK)
 [inaca]
 use extra.Na_o, extra.Ca_o
 use sodium.Na_i, calcium.Ca_i
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 kna1 = 15 [mM]
     in [mM]
 kna2 = 5 [mM]
@@ -785,7 +787,7 @@ INaCa_total = INaCa + inacass.INaCa_ss
 use extra.Na_o, extra.Ca_o
 use sodium.Na_ss, calcium.Ca_ss
 use inaca.kna1, inaca.kna2, inaca.kna3, inaca.hna
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 # Parameters h
 h1 = 1 + Na_ss / kna3 * (1 + hna)
 h2 = Na_ss * hna / (kna3 * h1)
@@ -853,7 +855,7 @@ INaCa_ss = 0.2 * inaca.g_adj * inaca.gNaCa * allo * (JncxNa + 2 * JncxCa)
 [inak]
 use extra.Na_o, sodium.Na_i, sodium.Na_ss
 use extra.K_o, potassium.K_i, potassium.K_ss
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 k1p = 949.5 [1/s]
     in [1/s]
 k1m = 182.4 [1/s/mM]
@@ -945,7 +947,7 @@ INaK = g_adj * PNaK * (JnakNa + JnakK)
 # Page 15 of the appendix to [2]
 #
 [ikb]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 xkb = 1 / (1 + exp((V - 14.48 [mV]) / -18.34 [mV]))
 g_adj = 1.0
 gKb = 0.003 [mS/uF]
@@ -960,7 +962,7 @@ IKb = g_adj * gKb * xkb * (V - rev.EK)
 # Page 15 of the appendix to [2]
 #
 [inab]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 B = phys.FRT
 v0 = 0
 g_adj = 1.0
@@ -976,7 +978,7 @@ INab = if(-1e-7<=U and U<=1e-7, A * (1.0 - 0.5*U), (A*U)/(exp(U)-1.0))
 # Page 15
 #
 [icab]
-V = if(setting.simType==0, membrane.V, membrane.Vc)
+V = if(setting.simType==0, membrane.V, membrane.VC)
 B = 2 * phys.FRT
 v0 = 0
 g_adj = 1.0

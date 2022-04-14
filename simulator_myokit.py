@@ -50,7 +50,7 @@ class Simulator:
         self.protocol = copy.copy(protocol)
         self.max_step = max_step
         self.abs_tol = abs_tol
-        self.rel_tol = rel_tol                       
+        self.rel_tol = rel_tol                               
         # basename = os.path.basename(model_path)        
         # self.name = os.path.splitext(basename)[0]                        
         # 1. Create pre-pacing protocol
@@ -64,6 +64,13 @@ class Simulator:
         p_const = myokit.pacing.constant(vhold)
         self.pre_simulation = myokit.Simulation( self.model, p_const )
         self.pre_init_state = self.pre_simulation.state()
+
+        # model = copy.copy(self.model)
+        # p_const = protocol_lib.VoltageClampProtocol( [protocol_lib.VoltageClampStep(voltage=vhold, duration=100000)] )
+        # if isinstance(p_const, protocol_lib.VoltageClampProtocol) or isinstance(p_const, mod_protocols.VoltageClampProtocol):
+        #     model, p_const = self.transform_to_myokit_protocol(p_const, model)
+        # self.pre_simulation = myokit.Simulation( model, p_const )        
+        # self.pre_init_state = self.pre_simulation.state()
 
     def reset_simulation_with_new_protocol(self, protocol):
         model = copy.copy(self.model)        
@@ -91,6 +98,7 @@ class Simulator:
         parameters : dictionary
         '''            
         for key, value in parameters.items():        
+            self.pre_simulation.set_constant(key, value)        
             self.simulation.set_constant(key, value)        
     
 
@@ -114,11 +122,20 @@ class Simulator:
             self.pre_simulation.pre(pre_step)
             self.simulation.set_state(self.pre_simulation.state())
 
+        elif sim_type==2:  # myokit.pacing.constant(self.vhold)
+            self.pre_simulation.reset()
+            self.simulation.reset()
+            self.pre_simulation.set_state(self.pre_init_state)
+            self.simulation.set_state(self.pre_init_state)            
+            self.pre_simulation.run(pre_step)
+            self.simulation.set_state(self.pre_simulation.state())
+
         self.pre_sim_state = True
         
         return self.simulation.state()
         
-    def simulate(self, end_time, log_times=None, extra_log=[]):      
+    def simulate(self, end_time, log_times=None, 
+                 extra_log=[]):      
         
         if not self.pre_sim_state:
             self.simulation.reset()     
@@ -132,7 +149,7 @@ class Simulator:
                                         ).npview()
         except myokit.SimulationError:
             return float('inf')
-
+            
         if extra_log:            
             self.current_response_info = mod_trace.CurrentResponseInfo()
             for i in range(len(d['engine.time'])):     
@@ -238,9 +255,19 @@ class Simulator:
                 protocol_myokit.add_step(0.5*(step.voltage_end+step.voltage_start), step.duration)
                 ramp_script += self.transform_to_mmt_ramp_script(step, end_times) 
             end_times += step.duration
+        
+        step = VC_protocol.steps[-1]
+        if isinstance(step, protocol_lib.VoltageClampStep) or isinstance(step, mod_protocols.VoltageClampStep) :
+            protocol_myokit.add_step(step.voltage, 1)
+        elif isinstance(step, protocol_lib.VoltageClampRamp)or isinstance(step, mod_protocols.VoltageClampRamp):
+            protocol_myokit.add_step(step.voltage_end, 1)
+            
         ramp_script += 'engine.pace)'        
         if len(ramp_script)>22:
-            model_myokit.get('membrane.V').set_rhs(ramp_script)
+            try:
+                model_myokit.get('membrane.VC').set_rhs(ramp_script)
+            except:
+                model_myokit.get('membrane.V').set_rhs(ramp_script)
         return model_myokit, protocol_myokit
     
     
