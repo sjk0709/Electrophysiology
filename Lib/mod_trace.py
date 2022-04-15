@@ -253,8 +253,7 @@ class CurrentResponseInfo:
             start_index = find_closest_index(time, i)
             end_index = find_closest_index(time, i + window)
             currents_in_window = self.currents[start_index: end_index + 1]
-            window_current_contributions = calculate_current_contributions(
-                currents=currents_in_window)
+            window_current_contributions = calculate_current_contributions(currents=currents_in_window)
 
             if window_current_contributions:
                 # Append results from current window to overall contributions
