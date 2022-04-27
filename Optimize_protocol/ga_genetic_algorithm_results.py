@@ -462,8 +462,7 @@ class VCOptimizationIndividual(Individual):
         
         #try:
         if config.model_name == 'Paci':
-            i_trace = get_model_response(
-                    paci_2018.PaciModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)
+            i_trace = get_model_response( paci_2018.PaciModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)
             scale = 1000            
         elif config.model_name == 'BR1977':              
             i_trace = model_response.get_model_response_JK( BR1977(self.protocol), self.protocol, prestep=prestep )
@@ -473,8 +472,9 @@ class VCOptimizationIndividual(Individual):
             scale = 1                        
         elif config.model_name == 'OHara2017':                                  
             # m_myokit, _, _ = myokit.load( config.mmt_file )                                                                  
-            # sim_myokit = simulator_myokit.Simulator(m_myokit, self.protocol, max_step=1.0, abs_tol=1e-8, rel_tol=1e-8, vhold=-80) # 1e-12, 1e-14 # 1e-08, 1e-10  # max_step=1, atol=1E-2, rtol=1E-4 # defalt: abs_tol=1e-06, rel_tol=0.0001                                                                 
-            i_trace = model_response.get_model_response_with_myokit( config.mmt_file, self.protocol, prestep=prestep )            
+            # sim_myokit = simulator_myokit.Simulator(m_myokit, self.protocol, max_step=1.0, abs_tol=1e-8, rel_tol=1e-8, vhold=-80) # 1e-12, 1e-14 # 1e-08, 1e-10  # max_step=1, atol=1E-2, rtol=1E-4 # defalt: abs_tol=1e-06, rel_tol=0.0001     
+            mmt_file = "../mmt-model-files/ohara-cipa-v1-2017_JK-v1.mmt"                                                            
+            i_trace = model_response.get_model_response_with_myokit( mmt_file, self.protocol, prestep=prestep )            
             scale = 1                        
         else:
             i_trace = get_model_response( kernik.KernikModel(is_exp_artefact=config.with_artefact), self.protocol, prestep=prestep)            

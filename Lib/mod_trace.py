@@ -286,7 +286,7 @@ def calculate_current_contributions(currents: List[List[Current]]):
                 current_contributions[current.name] = [
                         abs(current.value) / total_curr]
 
-            if current.name in ["I_out", "I_ion", "I_in"]:
+            if current.name in ["I_out", "I_ion", "I_in", "i_ion", "VC"]:
                 current_contributions[current.name] = [0]
 
 
