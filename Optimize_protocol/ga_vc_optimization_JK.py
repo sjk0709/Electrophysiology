@@ -29,8 +29,8 @@ def run_ga(ga_params, toolbox):
     print('\tEvaluating initial population.')
 
     current_array = [current for _ in range(len(population))]
-    eval_input = np.transpose([population, current_array])        
-    
+    eval_input = np.transpose([population, current_array])    
+        
     start_time = time.time()
     fitnesses = toolbox.map(toolbox.evaluate, eval_input)   
     
@@ -103,9 +103,8 @@ def _evaluate(eval_input):
     # print(individual)  # type : deap.creator
     
     try:
-        max_contributions = individual[0].evaluate(config=VCGA_PARAMS.config, prestep=5000)
-        # print(max_contributions)
-        fitness = max_contributions.loc[max_contributions['Current'] == current]['Contribution'].values[0]
+        max_contributions = individual[0].evaluate(config=VCGA_PARAMS.config, prestep=5000)                
+        fitness = max_contributions.loc[max_contributions['Current'] == current]['Contribution'].values[0]                
     except:
         return 0.0
 

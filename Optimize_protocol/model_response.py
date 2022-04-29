@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 import ga_configs
-import mod_protocols as protocols
+import mod_protocols
 import mod_trace as trace
 import mod_kernik as kernik
 
@@ -92,11 +92,9 @@ def get_model_response_JK( model, protocol, prestep=None):
     return tr
 
 def get_model_response_with_myokit( model_path, protocol, prestep=None):    
-    
-    vhold = protocol.steps[0].voltage
-    
+            
     model, p, s = myokit.load(model_path)        
-    sim = simulator_myokit.Simulator(model, protocol, max_step=1.0, abs_tol=1e-06, rel_tol=1e-6, vhold=vhold)  # 1e-12, 1e-14  # 1e-08, 1e-10
+    sim = simulator_myokit.Simulator(model, protocol, max_step=1.0, abs_tol=1e-06, rel_tol=1e-6, vhold=-80)  # 1e-12, 1e-14  # 1e-08, 1e-10
     sim.name = "ohara2017"  
     f = 1.5
     params = {         
@@ -138,6 +136,7 @@ def get_model_response_with_myokit( model_path, protocol, prestep=None):
     d = sim.simulate(protocol.get_voltage_change_endpoints()[-1], log_times=None, extra_log=['membrane.i_ion'] + extra_log)
     
     times = d['engine.time']    
+    
     command_voltages = [protocol.get_voltage_at_time(t) for t in times]    
     tr = trace.Trace(protocol,
                      cell_params=None,
@@ -145,7 +144,8 @@ def get_model_response_with_myokit( model_path, protocol, prestep=None):
                      y=command_voltages,  # simulator.model.V,
                      command_voltages=command_voltages,
                      current_response_info=sim.current_response_info,
-                     default_unit=None)         
+                     default_unit=None)   
+    
     return tr
 
 
