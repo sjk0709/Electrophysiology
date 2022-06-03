@@ -79,7 +79,7 @@ def leak_staircase():
     VC_protocol.add( VoltageClampStep(voltage=-70e-3, duration=10e-3) )  # Michael's suggestion
     VC_protocol.add( VoltageClampRamp(voltage_start=-70e-3, voltage_end=-110e-3, duration=0.1))  # second ramp step  
     VC_protocol.add( VoltageClampStep(voltage=-120e-3, duration=tstep-110e-3) )  # 
-    VC_protocol.add( VoltageClampStep(voltage=vhold, duration=100) )
+    VC_protocol.add( VoltageClampStep(voltage=vhold, duration=0.5) )
     
     return VC_protocol
 

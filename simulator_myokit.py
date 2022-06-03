@@ -134,8 +134,7 @@ class Simulator:
         
         return self.simulation.state()
         
-    def simulate(self, end_time, log_times=None, 
-                 extra_log=[]):      
+    def simulate(self, end_time, log_times=None, extra_log=[]):      
         
         if not self.pre_sim_state:
             self.simulation.reset()     
