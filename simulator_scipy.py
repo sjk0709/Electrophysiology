@@ -73,7 +73,7 @@ class Simulator:
                                 max_step=max_step, atol=atol, rtol=rtol )    
         
         self.model.current_response_info = mod_trace.CurrentResponseInfo()
-        if not isinstance(self.model.protocol, protocol_lib.PacingProtocol)  : 
+        if not isinstance(self.model.protocol, protocol_lib.PacingProtocol)  :             
             self.solution.y[0] = self.model.protocol.get_voltage_clamp_protocol(self.solution.t)
         list(map(self.model.differential_eq, self.solution.t, self.solution.y.transpose()))        
         

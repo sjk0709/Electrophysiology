@@ -88,9 +88,12 @@ class Kylie2017IKr():
         self.p7 = 5.15e-3 * 1e3 # [1/s]
         self.p8 = 0.03158 * 1e3 # [1/V]
 
-        self.y0 = [self.open0, self.active0]
+        self.y0 = [0, self.open0, self.active0]
         self.params = [self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8]
 
+    def set_initial_values(self, y0):
+        self.y0 = [0, y0[0], y0[1]]        
+        
     def set_params(self, g, p1, p2, p3, p4, p5, p6, p7, p8):
         self.g = g # [pA/V]
         self.p1 = p1 # [1/s]
@@ -106,13 +109,12 @@ class Kylie2017IKr():
     def set_result(self, times, y, log=None):
         self.times =  times
         self.V = np.array(self.protocol.get_voltage_clamp_protocol(times))
-        self.open = y[0]  
-        self.active = y[1]                  
+        self.open = y[1]  
+        self.active = y[2]                  
         self.IKr = self.g * self.open * self.active * (self.V - self.EK)
     
     def differential_eq(self, t, y):    
-        a, r = y
-        V = self.protocol.get_voltage_at_time(t)
+        V, a, r = y        
         k1 = self.p1*exp(self.p2*V)
         k2 = self.p3*exp(-self.p4*V)
         k3 = self.p5*exp(self.p6*V)
@@ -123,13 +125,15 @@ class Kylie2017IKr():
         r_inf = k4/(k3+k4) 
         da = (a_inf-a)/tau_a
         dr = (r_inf-r)/tau_r          
-        return [da, dr]
+        return [0, da, dr]
 
     def response_diff_eq(self, t, y):
         
         if isinstance(self.protocol, protocol_lib.PacingProtocol)  :                      
             face = self.protocol.pacing(t)
             self.stimulus.cal_stimulation(face) # Stimulus    
+        else:                         
+            y[0] = self.protocol.get_voltage_at_time(t)
                             
         return self.differential_eq(t, y)
 
