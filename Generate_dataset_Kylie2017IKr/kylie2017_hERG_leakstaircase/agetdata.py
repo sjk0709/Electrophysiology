@@ -223,8 +223,8 @@ def get_dataset2(file_numbers, window=10, step_size=5, window_type='avg', noise_
     start_time = time.time()
 
     processes = len(file_numbers)
-    if len(file_numbers)>36:
-        processes = 36   
+    if len(file_numbers)>os.cpu_count():
+        processes = os.cpu_count()   
 
     params = {
         'window' : window,
