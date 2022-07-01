@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+import protocol_lib
 from protocol_lib import VoltageClampProtocol
 from protocol_lib import VoltageClampStep
 from protocol_lib import VoltageClampRamp
@@ -79,7 +80,23 @@ def leak_staircase():
     VC_protocol.add( VoltageClampStep(voltage=-70e-3, duration=10e-3) )  # Michael's suggestion
     VC_protocol.add( VoltageClampRamp(voltage_start=-70e-3, voltage_end=-110e-3, duration=0.1))  # second ramp step  
     VC_protocol.add( VoltageClampStep(voltage=-120e-3, duration=tstep-110e-3) )  # 
-    VC_protocol.add( VoltageClampStep(voltage=vhold, duration=100) )
+    VC_protocol.add( VoltageClampStep(voltage=vhold, duration=0.5) )
+    
+    return VC_protocol
+
+
+def leemV1_CiPA():    
+    
+    VC_protocol = protocol_lib.VoltageClampProtocol()  # steps=steps
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=-80, duration=100) )
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=-90, duration=100) )
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=-80, duration=100) )
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=-35, duration=40) )
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=-80, duration=200) )
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=-40, duration=40) )
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=0, duration=40) )  
+    VC_protocol.add( protocol_lib.VoltageClampStep(voltage=40, duration=500) )
+    VC_protocol.add( protocol_lib.VoltageClampRamp(voltage_start=40, voltage_end=-120, duration=200)) # ramp step
     
     return VC_protocol
 
